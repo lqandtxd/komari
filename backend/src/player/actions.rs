@@ -176,7 +176,7 @@ pub struct Chat {
 #[derive(Clone, Copy, Debug)]
 pub enum Booster {
     Vip,
-    // TODO: Hexa
+    Hexa,
 }
 
 #[derive(Clone, Copy, Debug)]

@@ -171,6 +171,8 @@ pub struct PlayerConfiguration {
     pub update_health_millis: Option<u64>,
     /// VIP Booster key.
     pub vip_booster_key: KeyKind,
+    /// HEXA Booster key.
+    pub hexa_booster_key: KeyKind,
 }
 
 impl Default for PlayerConfiguration {
@@ -202,6 +204,7 @@ impl Default for PlayerConfiguration {
             use_potion_below_percent: None,
             update_health_millis: None,
             vip_booster_key: KeyKind::A,
+            hexa_booster_key: KeyKind::A,
         }
     }
 }

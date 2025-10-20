@@ -63,6 +63,7 @@ impl CharacterService for DefaultCharacterService {
                 };
             player_context.config.update_health_millis = Some(character.health_update_millis);
             player_context.config.vip_booster_key = character.vip_booster_key.key.into();
+            player_context.config.hexa_booster_key = character.hexa_booster_key.key.into();
         }
     }
 }

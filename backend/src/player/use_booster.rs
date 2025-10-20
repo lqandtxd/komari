@@ -43,6 +43,7 @@ pub fn update_using_booster_state(resources: &Resources, player: &mut PlayerEnti
     };
     let key = match using.kind {
         Booster::Vip => player.context.config.vip_booster_key,
+        Booster::Hexa => player.context.config.hexa_booster_key,
     };
 
     match using.state {
@@ -81,14 +82,14 @@ pub fn update_using_booster_state(resources: &Resources, player: &mut PlayerEnti
 }
 
 fn update_using(resources: &Resources, using: &mut UsingBooster, key: KeyKind) {
+    const PRESS_KEY_AT: u32 = 60;
+
     let State::Using(timeout) = using.state else {
         panic!("using booster state is not using")
     };
 
-    match next_timeout_lifecycle(timeout, 60) {
-        Lifecycle::Started(timeout) => transition!(using, State::Using(timeout), {
-            resources.input.send_key(key);
-        }),
+    match next_timeout_lifecycle(timeout, 120) {
+        Lifecycle::Started(timeout) => transition!(using, State::Using(timeout)),
         Lifecycle::Ended => transition_if!(
             using,
             State::Confirming(Timeout::default()),
@@ -99,7 +100,11 @@ fn update_using(resources: &Resources, using: &mut UsingBooster, key: KeyKind) {
             },
             resources.detector().detect_admin_visible()
         ),
-        Lifecycle::Updated(timeout) => transition!(using, State::Using(timeout)),
+        Lifecycle::Updated(timeout) => transition!(using, State::Using(timeout), {
+            if timeout.current == PRESS_KEY_AT {
+                resources.input.send_key(key);
+            }
+        }),
     }
 }
 

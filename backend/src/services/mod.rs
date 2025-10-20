@@ -222,7 +222,9 @@ impl DefaultRequestHandler<'_> {
                 self.update_halt_or_panic(false, true);
             }
             WorldEvent::PlayerDied => {
-                self.update_halt_or_panic(true, false);
+                if self.service.settings.settings().stop_on_player_die {
+                    self.update_halt_or_panic(true, false);
+                }
             }
             WorldEvent::MinimapChanged => {
                 if self.resources.operation.halting()

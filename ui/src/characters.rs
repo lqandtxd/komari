@@ -500,6 +500,33 @@ fn SectionUseBooster() -> Element {
                     },
                     disabled: character().id.is_none(),
                 }
+                CharactersKeyBindingConfigurationInput {
+                    label: "HEXA Booster key",
+                    value: character().hexa_booster_key,
+                    on_value: move |key_config: Option<KeyBindingConfiguration>| {
+                        save_character(Character {
+                            hexa_booster_key: key_config.expect("not optional"),
+                            ..character.peek().clone()
+                        });
+                    },
+                    disabled: character().id.is_none(),
+                    label_class: "col-span-2",
+                }
+                CharactersCheckbox {
+                    label: "Enabled",
+                    checked: character().hexa_booster_key.enabled,
+                    on_checked: move |enabled| {
+                        let character = character.peek().clone();
+                        save_character(Character {
+                            hexa_booster_key: KeyBindingConfiguration {
+                                enabled,
+                                ..character.hexa_booster_key
+                            },
+                            ..character
+                        });
+                    },
+                    disabled: character().id.is_none(),
+                }
             }
         }
     }

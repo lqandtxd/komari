@@ -74,9 +74,11 @@ fn main() {
     let extreme_green_potion_buff = dir.join("extreme_green_potion_ideal_ratio.png");
     let extreme_gold_potion_buff = dir.join("extreme_gold_potion_ideal_ratio.png");
 
+    let hexa_booster = dir.join("hexa_booster_ideal_ratio.png");
+    let hexa_booster_number = dir.join("hexa_booster_number_ideal_ratio.png");
     let vip_booster = dir.join("vip_booster_ideal_ratio.png");
     let vip_booster_number = dir.join("vip_booster_number_ideal_ratio.png");
-    let vip_booster_number_mask = dir.join("vip_booster_number_mask_ideal_ratio.png");
+    let hexa_vip_booster_number_mask = dir.join("hexa_vip_booster_number_mask_ideal_ratio.png");
 
     let hp_bar_anchor = dir.join("hp_bar_anchor_ideal_ratio.png");
     let hp_separator = dir.join("hp_separator_ideal_ratio.png");
@@ -332,6 +334,14 @@ fn main() {
     );
 
     println!(
+        "cargo:rustc-env=HEXA_BOOSTER_TEMPLATE={}",
+        hexa_booster.to_str().unwrap()
+    );
+    println!(
+        "cargo:rustc-env=HEXA_BOOSTER_NUMBER_TEMPLATE={}",
+        hexa_booster_number.to_str().unwrap()
+    );
+    println!(
         "cargo:rustc-env=VIP_BOOSTER_TEMPLATE={}",
         vip_booster.to_str().unwrap()
     );
@@ -340,8 +350,8 @@ fn main() {
         vip_booster_number.to_str().unwrap()
     );
     println!(
-        "cargo:rustc-env=VIP_BOOSTER_NUMBER_MASK_TEMPLATE={}",
-        vip_booster_number_mask.to_str().unwrap()
+        "cargo:rustc-env=HEXA_VIP_BOOSTER_NUMBER_MASK_TEMPLATE={}",
+        hexa_vip_booster_number_mask.to_str().unwrap()
     );
 
     println!(

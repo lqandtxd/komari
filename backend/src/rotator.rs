@@ -38,13 +38,13 @@ const AUTO_MOB_SAME_QUAD_THRESHOLD: u32 = 5;
 enum ConditionResult {
     /// The action will be queued.
     Queue,
-    /// The action is skipped and evaluated again on next update.
+    /// The action is skipped.
     Skip,
     /// The action is skipped but `last_queued_time` is updated.
     Ignore,
 }
 
-type ConditionFn = Box<dyn Fn(&Resources, &World, Option<Instant>) -> ConditionResult>;
+type ConditionFn = Box<dyn Fn(&Resources, &World, &mut PriorityActionQueueInfo) -> ConditionResult>;
 
 /// Predicate for when a priority action can be queued.
 struct Condition(ConditionFn);
@@ -76,8 +76,15 @@ struct PriorityAction {
     condition_kind: Option<ActionCondition>,
     /// The inner action.
     inner: RotatorAction,
+    /// The metadata about this action.
+    metadata: Option<ActionMetadata>,
     /// Whether to queue this action to the front of [`Rotator::priority_actions_queue`].
     queue_to_front: bool,
+    queue_info: PriorityActionQueueInfo,
+}
+
+#[derive(Debug, Default)]
+struct PriorityActionQueueInfo {
     /// Whether this action is being ignored.
     ///
     /// While ignored, [`Self::last_queued_time`] will be updated to [`Instant::now`].
@@ -86,6 +93,22 @@ struct PriorityAction {
     ignoring: bool,
     /// The last [`Instant`] when this action was queued
     last_queued_time: Option<Instant>,
+}
+
+#[derive(Debug, Copy, Clone)]
+enum ActionMetadata {
+    UseBooster,
+    Buff { kind: BuffKind },
+}
+
+#[derive(Debug)]
+enum ResolveConflict {
+    None,
+    #[allow(dead_code)]
+    Replace {
+        id: u32,
+    },
+    Ignore,
 }
 
 /// The action that will be passed to the player.
@@ -133,6 +156,7 @@ pub struct RotatorBuildArgs<'a> {
     pub enable_familiars_swapping: bool,
     pub enable_reset_normal_actions_on_erda: bool,
     pub enable_using_vip_booster: bool,
+    pub enable_using_hexa_booster: bool,
 }
 
 /// Handles rotating provided [`PlayerAction`]s.
@@ -260,9 +284,44 @@ impl DefaultRotator {
             })
         }
 
+        fn resolve_conflict_from_metadata(
+            rotator: &DefaultRotator,
+            metadata: ActionMetadata,
+        ) -> ResolveConflict {
+            match metadata {
+                ActionMetadata::UseBooster => {
+                    for id in rotator.priority_actions_queue.iter() {
+                        let action = rotator.priority_actions.get(id).expect("exists");
+                        if matches!(action.metadata, Some(ActionMetadata::UseBooster)) {
+                            info!(target: "rotator", "ignored booster usage due to conflict with another booster kind");
+                            return ResolveConflict::Ignore;
+                        }
+                    }
+                }
+                ActionMetadata::Buff {
+                    kind: BuffKind::ExpCouponX2 | BuffKind::ExpCouponX3 | BuffKind::ExpCouponX4,
+                } => {
+                    // TODO:
+                }
+                ActionMetadata::Buff {
+                    kind: BuffKind::WealthAcquisitionPotion | BuffKind::SmallWealthAcquisitionPotion,
+                } => {
+                    // TODO:
+                }
+                ActionMetadata::Buff {
+                    kind: BuffKind::ExpAccumulationPotion | BuffKind::SmallExpAccumulationPotion,
+                } => {
+                    // TODO:
+                }
+                ActionMetadata::Buff { .. } => (),
+            }
+
+            ResolveConflict::None
+        }
+
         // Keeps ignoring while there is any type of erda condition action inside the queue
         let has_erda_action = has_erda_action_queuing_or_executing(self, &world.player.context);
-        let ids = self.priority_actions.keys().copied().collect::<Vec<_>>(); // why?
+        let ids = self.priority_actions.keys().copied().collect::<Vec<_>>();
         let mut did_queue_erda_action = false;
 
         for id in ids {
@@ -272,7 +331,7 @@ impl DefaultRotator {
                 is_priority_linked_action_queuing_or_executing(self, &world.player.context, id);
             let action = self.priority_actions.get_mut(&id).expect("action id exist");
 
-            action.ignoring = match action.condition_kind {
+            action.queue_info.ignoring = match action.condition_kind {
                 Some(ActionCondition::ErdaShowerOffCooldown) => {
                     has_erda_action || has_linked_action
                 }
@@ -290,30 +349,59 @@ impl DefaultRotator {
                 }
                 Some(ActionCondition::Any) => unreachable!(),
             };
-            if action.ignoring {
-                action.last_queued_time = Some(Instant::now());
+            if action.queue_info.ignoring {
+                action.queue_info.last_queued_time = Some(Instant::now());
                 continue;
             }
 
-            let result = (action.condition.0)(resources, world, action.last_queued_time);
+            let condition_fn = &action.condition.0;
+            let result = condition_fn(resources, world, &mut action.queue_info);
             match result {
                 ConditionResult::Queue => {
-                    if action.queue_to_front {
-                        self.priority_actions_queue.push_front(id);
+                    let conflict = if let Some(metadata) = action.metadata {
+                        resolve_conflict_from_metadata(self, metadata)
                     } else {
-                        self.priority_actions_queue.push_back(id);
-                    }
-                    action.last_queued_time = Some(Instant::now());
-                    if !did_queue_erda_action {
-                        did_queue_erda_action = matches!(
-                            action.condition_kind,
-                            Some(ActionCondition::ErdaShowerOffCooldown)
-                        );
+                        ResolveConflict::None
+                    };
+                    // Reborrow mutably here so the above `resolve_conflict_from_metadata`
+                    // can do immutable borrow.
+                    let action = self.priority_actions.get_mut(&id).expect("action id exist");
+
+                    match conflict {
+                        ResolveConflict::None => {
+                            if action.queue_to_front {
+                                self.priority_actions_queue.push_front(id);
+                            } else {
+                                self.priority_actions_queue.push_back(id);
+                            }
+                            action.queue_info.last_queued_time = Some(Instant::now());
+
+                            if !did_queue_erda_action {
+                                did_queue_erda_action = matches!(
+                                    action.condition_kind,
+                                    Some(ActionCondition::ErdaShowerOffCooldown)
+                                );
+                            }
+                        }
+                        ResolveConflict::Replace { id: replace_id } => {
+                            if let Some(replace_id) = self
+                                .priority_actions_queue
+                                .iter_mut()
+                                .find(|id| **id == replace_id)
+                            {
+                                *replace_id = id;
+                            }
+
+                            action.queue_info.last_queued_time = Some(Instant::now());
+                        }
+                        ResolveConflict::Ignore => {
+                            action.queue_info.last_queued_time = Some(Instant::now());
+                        }
                     }
                 }
                 ConditionResult::Skip => (),
                 ConditionResult::Ignore => {
-                    action.last_queued_time = Some(Instant::now());
+                    action.queue_info.last_queued_time = Some(Instant::now());
                 }
             }
         }
@@ -722,6 +810,7 @@ impl Rotator for DefaultRotator {
             enable_familiars_swapping,
             enable_reset_normal_actions_on_erda,
             enable_using_vip_booster,
+            enable_using_hexa_booster,
         } = args;
         self.reset_queue();
         self.normal_actions.clear();
@@ -813,6 +902,12 @@ impl Rotator for DefaultRotator {
             self.priority_actions.insert(
                 self.id_counter.fetch_add(1, Ordering::Relaxed),
                 use_booster_priority_action(BoosterKind::Vip),
+            );
+        }
+        if enable_using_hexa_booster {
+            self.priority_actions.insert(
+                self.id_counter.fetch_add(1, Ordering::Relaxed),
+                use_booster_priority_action(BoosterKind::Hexa),
             );
         }
         for (i, key) in buffs.iter().copied() {
@@ -945,17 +1040,17 @@ fn priority_action(
     );
     PriorityAction {
         inner: action,
-        condition: Condition(Box::new(move |_, world, last_queued_time| {
-            if should_queue_fixed_action(world, last_queued_time, condition) {
+        condition: Condition(Box::new(move |_, world, info| {
+            if should_queue_fixed_action(world, info.last_queued_time, condition) {
                 ConditionResult::Queue
             } else {
                 ConditionResult::Skip
             }
         })),
         condition_kind: Some(condition),
+        metadata: None,
         queue_to_front,
-        ignoring: false,
-        last_queued_time: None,
+        queue_info: PriorityActionQueueInfo::default(),
     }
 }
 
@@ -972,8 +1067,8 @@ fn priority_action(
 #[inline]
 fn familiar_essence_replenish_priority_action(key: KeyBinding) -> PriorityAction {
     PriorityAction {
-        condition: Condition(Box::new(|resources, world, last_queued_time| {
-            if !at_least_millis_passed_since(last_queued_time, COOLDOWN_BETWEEN_QUEUE_MILLIS) {
+        condition: Condition(Box::new(|resources, world, info| {
+            if !at_least_millis_passed_since(info.last_queued_time, COOLDOWN_BETWEEN_QUEUE_MILLIS) {
                 return ConditionResult::Skip;
             }
             if !matches!(world.buffs[BuffKind::Familiar].state, Buff::Yes) {
@@ -986,6 +1081,7 @@ fn familiar_essence_replenish_priority_action(key: KeyBinding) -> PriorityAction
             }
         })),
         condition_kind: None,
+        metadata: None,
         inner: RotatorAction::Single(PlayerAction::Key(Key {
             key,
             link_key: None,
@@ -999,8 +1095,7 @@ fn familiar_essence_replenish_priority_action(key: KeyBinding) -> PriorityAction
             wait_after_use_ticks_random_range: 0,
         })),
         queue_to_front: true,
-        ignoring: false,
-        last_queued_time: None,
+        queue_info: PriorityActionQueueInfo::default(),
     }
 }
 
@@ -1015,11 +1110,11 @@ fn familiar_essence_replenish_priority_action(key: KeyBinding) -> PriorityAction
 #[inline]
 fn solve_rune_priority_action() -> PriorityAction {
     PriorityAction {
-        condition: Condition(Box::new(|_, world, last_queued_time| {
+        condition: Condition(Box::new(|_, world, info| {
             if world.player.context.is_validating_rune() {
                 return ConditionResult::Skip;
             }
-            if !at_least_millis_passed_since(last_queued_time, COOLDOWN_BETWEEN_QUEUE_MILLIS) {
+            if !at_least_millis_passed_since(info.last_queued_time, COOLDOWN_BETWEEN_QUEUE_MILLIS) {
                 return ConditionResult::Skip;
             }
             if let Minimap::Idle(idle) = world.minimap.state
@@ -1031,10 +1126,10 @@ fn solve_rune_priority_action() -> PriorityAction {
             ConditionResult::Skip
         })),
         condition_kind: None,
+        metadata: None,
         inner: RotatorAction::Single(PlayerAction::SolveRune),
         queue_to_front: true,
-        ignoring: false,
-        last_queued_time: None,
+        queue_info: PriorityActionQueueInfo::default(),
     }
 }
 
@@ -1047,16 +1142,21 @@ fn solve_rune_priority_action() -> PriorityAction {
 #[inline]
 fn buff_priority_action(buff: BuffKind, key: KeyBinding) -> PriorityAction {
     macro_rules! skip_if_has_buff {
-        ($world:expr, $variant:ident) => {
+        ($world:expr, $variant:ident $(| $variants:ident)*) => {{
+            $(
+                if !matches!($world.buffs[BuffKind::$variants].state, Buff::No) {
+                    return ConditionResult::Skip;
+                }
+            )*
             if !matches!($world.buffs[BuffKind::$variant].state, Buff::No) {
                 return ConditionResult::Skip;
             }
-        };
+        }};
     }
 
     PriorityAction {
-        condition: Condition(Box::new(move |_, world, last_queued_time| {
-            if !at_least_millis_passed_since(last_queued_time, COOLDOWN_BETWEEN_QUEUE_MILLIS) {
+        condition: Condition(Box::new(move |_, world, info| {
+            if !at_least_millis_passed_since(info.last_queued_time, COOLDOWN_BETWEEN_QUEUE_MILLIS) {
                 return ConditionResult::Skip;
             }
             if !matches!(world.minimap.state, Minimap::Idle(_)) {
@@ -1077,10 +1177,13 @@ fn buff_priority_action(buff: BuffKind, key: KeyBinding) -> PriorityAction {
                     skip_if_has_buff!(world, SmallExpAccumulationPotion)
                 }
                 BuffKind::ExpCouponX2 => {
-                    skip_if_has_buff!(world, ExpCouponX3)
+                    skip_if_has_buff!(world, ExpCouponX3 | ExpCouponX4)
                 }
                 BuffKind::ExpCouponX3 => {
-                    skip_if_has_buff!(world, ExpCouponX2)
+                    skip_if_has_buff!(world, ExpCouponX2 | ExpCouponX4)
+                }
+                BuffKind::ExpCouponX4 => {
+                    skip_if_has_buff!(world, ExpCouponX3 | ExpCouponX2)
                 }
                 _ => (),
             }
@@ -1104,27 +1207,25 @@ fn buff_priority_action(buff: BuffKind, key: KeyBinding) -> PriorityAction {
             wait_after_use_ticks: 10,
             wait_after_use_ticks_random_range: 0,
         })),
+        metadata: Some(ActionMetadata::Buff { kind: buff }),
         queue_to_front: true,
-        ignoring: false,
-        last_queued_time: None,
+        queue_info: PriorityActionQueueInfo::default(),
     }
 }
 
 #[inline]
 fn panic_priority_action() -> PriorityAction {
     PriorityAction {
-        condition: Condition(Box::new(|_, world, last_queued_time| {
-            match world.minimap.state {
-                Minimap::Detecting => ConditionResult::Skip,
-                Minimap::Idle(idle) => {
-                    if !idle.has_any_other_player() || last_queued_time.is_none() {
-                        return ConditionResult::Ignore;
-                    }
-                    if at_least_millis_passed_since(last_queued_time, 15000) {
-                        ConditionResult::Queue
-                    } else {
-                        ConditionResult::Skip
-                    }
+        condition: Condition(Box::new(|_, world, info| match world.minimap.state {
+            Minimap::Detecting => ConditionResult::Skip,
+            Minimap::Idle(idle) => {
+                if !idle.has_any_other_player() || info.last_queued_time.is_none() {
+                    return ConditionResult::Ignore;
+                }
+                if at_least_millis_passed_since(info.last_queued_time, 15000) {
+                    ConditionResult::Queue
+                } else {
+                    ConditionResult::Skip
                 }
             }
         })),
@@ -1132,17 +1233,17 @@ fn panic_priority_action() -> PriorityAction {
         inner: RotatorAction::Single(PlayerAction::Panic(Panic {
             to: PanicTo::Channel,
         })),
+        metadata: None,
         queue_to_front: true,
-        ignoring: false,
-        last_queued_time: None,
+        queue_info: PriorityActionQueueInfo::default(),
     }
 }
 
 #[inline]
 fn elite_boss_change_channel_priority_action() -> PriorityAction {
     PriorityAction {
-        condition: Condition(Box::new(|_, world, last_queued_time| {
-            if !at_least_millis_passed_since(last_queued_time, 15000) {
+        condition: Condition(Box::new(|_, world, info| {
+            if !at_least_millis_passed_since(info.last_queued_time, 15000) {
                 return ConditionResult::Skip;
             }
             if let Minimap::Idle(idle) = world.minimap.state
@@ -1157,17 +1258,17 @@ fn elite_boss_change_channel_priority_action() -> PriorityAction {
         inner: RotatorAction::Single(PlayerAction::Panic(Panic {
             to: PanicTo::Channel,
         })),
+        metadata: None,
         queue_to_front: true,
-        ignoring: false,
-        last_queued_time: None,
+        queue_info: PriorityActionQueueInfo::default(),
     }
 }
 
 #[inline]
 fn elite_boss_use_key_priority_action(key: KeyBinding) -> PriorityAction {
     PriorityAction {
-        condition: Condition(Box::new(|_, world, last_queued_time| {
-            if !at_least_millis_passed_since(last_queued_time, 15000) {
+        condition: Condition(Box::new(|_, world, info| {
+            if !at_least_millis_passed_since(info.last_queued_time, 15000) {
                 return ConditionResult::Skip;
             }
             if let Minimap::Idle(idle) = world.minimap.state
@@ -1191,17 +1292,17 @@ fn elite_boss_use_key_priority_action(key: KeyBinding) -> PriorityAction {
             wait_after_use_ticks: 10,
             wait_after_use_ticks_random_range: 0,
         })),
+        metadata: None,
         queue_to_front: true,
-        ignoring: false,
-        last_queued_time: None,
+        queue_info: PriorityActionQueueInfo::default(),
     }
 }
 
 #[inline]
 fn use_booster_priority_action(kind: BoosterKind) -> PriorityAction {
     PriorityAction {
-        condition: Condition(Box::new(move |resources, world, last_queued_time| {
-            if !at_least_millis_passed_since(last_queued_time, COOLDOWN_BETWEEN_QUEUE_MILLIS) {
+        condition: Condition(Box::new(move |resources, world, info| {
+            if !at_least_millis_passed_since(info.last_queued_time, COOLDOWN_BETWEEN_QUEUE_MILLIS) {
                 return ConditionResult::Skip;
             }
             if matches!(kind, BoosterKind::Vip)
@@ -1217,7 +1318,9 @@ fn use_booster_priority_action(kind: BoosterKind) -> PriorityAction {
                 && !detector.detect_timer_visible()
             {
                 match detector.detect_booster(kind) {
-                    BoosterState::Available => return ConditionResult::Queue,
+                    BoosterState::Available => {
+                        return ConditionResult::Queue;
+                    }
                     BoosterState::Unavailable | BoosterState::NotInQuickSlots => (),
                 }
             }
@@ -1228,11 +1331,12 @@ fn use_booster_priority_action(kind: BoosterKind) -> PriorityAction {
         inner: RotatorAction::Single(PlayerAction::UseBooster(UseBooster {
             kind: match kind {
                 BoosterKind::Vip => Booster::Vip,
+                BoosterKind::Hexa => Booster::Hexa,
             },
         })),
+        metadata: Some(ActionMetadata::UseBooster),
         queue_to_front: true,
-        ignoring: false,
-        last_queued_time: None,
+        queue_info: PriorityActionQueueInfo::default(),
     }
 }
 
@@ -1410,6 +1514,7 @@ mod tests {
             enable_familiars_swapping: false,
             enable_reset_normal_actions_on_erda: false,
             enable_using_vip_booster: false,
+            enable_using_hexa_booster: false,
         };
 
         rotator.build_actions(args);
@@ -1504,9 +1609,9 @@ mod tests {
                 })),
                 condition_kind: None,
                 inner: RotatorAction::Single(PlayerAction::SolveRune),
+                metadata: None,
                 queue_to_front: true,
-                ignoring: false,
-                last_queued_time: None,
+                queue_info: PriorityActionQueueInfo::default(),
             },
         );
         let resources = Resources::new(None, None);
@@ -1528,9 +1633,9 @@ mod tests {
                 condition: Condition(Box::new(|_, _, _| ConditionResult::Queue)),
                 condition_kind: None,
                 inner: RotatorAction::Single(NORMAL_ACTION.into()),
+                metadata: None,
                 queue_to_front: false,
-                ignoring: false,
-                last_queued_time: None,
+                queue_info: PriorityActionQueueInfo::default(),
             },
         );
         rotator.priority_actions.insert(
@@ -1539,9 +1644,9 @@ mod tests {
                 condition: Condition(Box::new(|_, _, _| ConditionResult::Queue)),
                 condition_kind: None,
                 inner: RotatorAction::Single(NORMAL_ACTION.into()),
+                metadata: None,
                 queue_to_front: false,
-                ignoring: false,
-                last_queued_time: None,
+                queue_info: PriorityActionQueueInfo::default(),
             },
         );
 
@@ -1556,9 +1661,9 @@ mod tests {
                 condition: Condition(Box::new(|_, _, _| ConditionResult::Queue)),
                 condition_kind: None,
                 inner: RotatorAction::Single(NORMAL_ACTION.into()),
+                metadata: None,
                 queue_to_front: true,
-                ignoring: false,
-                last_queued_time: None,
+                queue_info: PriorityActionQueueInfo::default(),
             },
         );
 
@@ -1577,9 +1682,9 @@ mod tests {
                 condition: Condition(Box::new(|_, _, _| ConditionResult::Queue)),
                 condition_kind: None,
                 inner: RotatorAction::Single(NORMAL_ACTION.into()),
+                metadata: None,
                 queue_to_front: true,
-                ignoring: false,
-                last_queued_time: None,
+                queue_info: PriorityActionQueueInfo::default(),
             },
         );
 
@@ -1610,9 +1715,9 @@ mod tests {
                         next: None,
                     })),
                 }),
+                metadata: None,
                 queue_to_front: false,
-                ignoring: false,
-                last_queued_time: None,
+                queue_info: PriorityActionQueueInfo::default(),
             },
         );
 
@@ -1629,9 +1734,9 @@ mod tests {
                 condition: Condition(Box::new(|_, _, _| ConditionResult::Queue)),
                 condition_kind: None,
                 inner: RotatorAction::Single(PlayerAction::SolveRune),
+                metadata: None,
                 queue_to_front: true,
-                ignoring: false,
-                last_queued_time: None,
+                queue_info: PriorityActionQueueInfo::default(),
             },
         );
         rotator.rotate_action(&resources, &mut world);
@@ -1707,9 +1812,9 @@ mod tests {
                 condition: Condition(Box::new(|_, _, _| panic!("should not be called"))),
                 condition_kind: None,
                 inner: RotatorAction::Single(NORMAL_ACTION.into()),
+                metadata: None,
                 queue_to_front: false,
-                ignoring: false,
-                last_queued_time: None,
+                queue_info: PriorityActionQueueInfo::default(),
             },
         );
         // Simulate the action is currently being executed by the player
@@ -1724,8 +1829,8 @@ mod tests {
         let action = rotator.priority_actions.get(&action_id).unwrap();
 
         // Assert the action was marked as ignored
-        assert!(action.ignoring);
-        assert!(action.last_queued_time.is_some());
+        assert!(action.queue_info.ignoring);
+        assert!(action.queue_info.last_queued_time.is_some());
 
         // It should not be in the queue
         assert!(!rotator.priority_actions_queue.contains(&action_id));
@@ -1747,9 +1852,9 @@ mod tests {
                     inner: NORMAL_ACTION.into(),
                     next: None,
                 }),
+                metadata: None,
                 queue_to_front: false,
-                ignoring: false,
-                last_queued_time: None,
+                queue_info: PriorityActionQueueInfo::default(),
             },
         );
 
@@ -1763,8 +1868,8 @@ mod tests {
 
         let action = rotator.priority_actions.get(&action_id).unwrap();
 
-        assert!(action.ignoring);
-        assert!(action.last_queued_time.is_some());
+        assert!(action.queue_info.ignoring);
+        assert!(action.queue_info.last_queued_time.is_some());
         assert!(!rotator.priority_actions_queue.contains(&action_id));
     }
 
@@ -1783,9 +1888,12 @@ mod tests {
                 condition: Condition(Box::new(|_, _, _| ConditionResult::Queue)),
                 condition_kind: Some(ActionCondition::ErdaShowerOffCooldown),
                 inner: RotatorAction::Single(NORMAL_ACTION.into()),
+                metadata: None,
                 queue_to_front: false,
-                ignoring: false,
-                last_queued_time: Some(Instant::now()),
+                queue_info: PriorityActionQueueInfo {
+                    last_queued_time: Some(Instant::now()),
+                    ..Default::default()
+                },
             },
         );
 
@@ -1795,9 +1903,9 @@ mod tests {
                 condition: Condition(Box::new(|_, _, _| panic!("should not be called"))),
                 condition_kind: Some(ActionCondition::ErdaShowerOffCooldown),
                 inner: RotatorAction::Single(NORMAL_ACTION.into()),
+                metadata: None,
                 queue_to_front: false,
-                ignoring: false,
-                last_queued_time: None,
+                queue_info: PriorityActionQueueInfo::default(),
             },
         );
 
@@ -1809,8 +1917,8 @@ mod tests {
 
         let second_erda = rotator.priority_actions.get(&second_erda_id).unwrap();
 
-        assert!(second_erda.ignoring);
-        assert!(second_erda.last_queued_time.is_some());
+        assert!(second_erda.queue_info.ignoring);
+        assert!(second_erda.queue_info.last_queued_time.is_some());
         assert!(!rotator.priority_actions_queue.contains(&second_erda_id));
     }
 }

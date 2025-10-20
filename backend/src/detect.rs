@@ -142,7 +142,7 @@ pub enum BoosterState {
 #[derive(Clone, Copy, Debug)]
 pub enum BoosterKind {
     Vip,
-    // TODO: Hexa
+    Hexa,
 }
 
 /// A trait for detecting objects from provided frame.
@@ -2506,14 +2506,28 @@ fn detect_timer_visible(mat: &impl ToInputArray, localization: &Localization) ->
 }
 
 fn detect_booster<T: MatTraitConst + ToInputArray>(mat: &T, kind: BoosterKind) -> BoosterState {
-    static TEMPLATE: LazyLock<Mat> = LazyLock::new(|| {
+    static HEXA_TEMPLATE: LazyLock<Mat> = LazyLock::new(|| {
+        imgcodecs::imdecode(
+            include_bytes!(env!("HEXA_BOOSTER_TEMPLATE")),
+            IMREAD_GRAYSCALE,
+        )
+        .unwrap()
+    });
+    static HEXA_TEMPLATE_NUMBER: LazyLock<Mat> = LazyLock::new(|| {
+        imgcodecs::imdecode(
+            include_bytes!(env!("HEXA_BOOSTER_NUMBER_TEMPLATE")),
+            IMREAD_GRAYSCALE,
+        )
+        .unwrap()
+    });
+    static VIP_TEMPLATE: LazyLock<Mat> = LazyLock::new(|| {
         imgcodecs::imdecode(
             include_bytes!(env!("VIP_BOOSTER_TEMPLATE")),
             IMREAD_GRAYSCALE,
         )
         .unwrap()
     });
-    static TEMPLATE_NUMBER: LazyLock<Mat> = LazyLock::new(|| {
+    static VIP_TEMPLATE_NUMBER: LazyLock<Mat> = LazyLock::new(|| {
         imgcodecs::imdecode(
             include_bytes!(env!("VIP_BOOSTER_NUMBER_TEMPLATE")),
             IMREAD_GRAYSCALE,
@@ -2522,14 +2536,23 @@ fn detect_booster<T: MatTraitConst + ToInputArray>(mat: &T, kind: BoosterKind) -
     });
     static TEMPLATE_NUMBER_MASK: LazyLock<Mat> = LazyLock::new(|| {
         imgcodecs::imdecode(
-            include_bytes!(env!("VIP_BOOSTER_NUMBER_MASK_TEMPLATE")),
+            include_bytes!(env!("HEXA_VIP_BOOSTER_NUMBER_MASK_TEMPLATE")),
             IMREAD_GRAYSCALE,
         )
         .unwrap()
     });
 
     let (template, template_number, template_number_mask) = match kind {
-        BoosterKind::Vip => (&*TEMPLATE, &*TEMPLATE_NUMBER, &*TEMPLATE_NUMBER_MASK),
+        BoosterKind::Vip => (
+            &*VIP_TEMPLATE,
+            &*VIP_TEMPLATE_NUMBER,
+            &*TEMPLATE_NUMBER_MASK,
+        ),
+        BoosterKind::Hexa => (
+            &*HEXA_TEMPLATE,
+            &*HEXA_TEMPLATE_NUMBER,
+            &*TEMPLATE_NUMBER_MASK,
+        ),
     };
     let pad_height = template_number.size().unwrap().height;
     let Ok(booster_bbox) = detect_template(mat, template, Point::default(), 0.75).map(|bbox| {

@@ -626,7 +626,16 @@ fn SectionOthers() -> Element {
                     },
                     checked: settings().enable_rune_solving,
                 }
-                div {}
+                SettingsCheckbox {
+                    label: "Enable panic mode",
+                    on_checked: move |enable_panic_mode| {
+                        save_settings(Settings {
+                            enable_panic_mode,
+                            ..settings.peek().clone()
+                        });
+                    },
+                    checked: settings().enable_panic_mode,
+                }
                 SettingsCheckbox {
                     label: "Stop actions on fail or map changed",
                     on_checked: move |stop_on_fail_or_change_map| {
@@ -638,14 +647,14 @@ fn SectionOthers() -> Element {
                     checked: settings().stop_on_fail_or_change_map,
                 }
                 SettingsCheckbox {
-                    label: "Enable panic mode",
-                    on_checked: move |enable_panic_mode| {
+                    label: "Stop actions on player dies",
+                    on_checked: move |stop_on_player_die| {
                         save_settings(Settings {
-                            enable_panic_mode,
+                            stop_on_player_die,
                             ..settings.peek().clone()
                         });
                     },
-                    checked: settings().enable_panic_mode,
+                    checked: settings().stop_on_player_die,
                 }
                 div {
                     a { id: export_element_id(), class: "w-0 h-0 invisible" }

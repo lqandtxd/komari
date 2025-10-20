@@ -217,6 +217,8 @@ pub struct Settings {
     pub enable_rune_solving: bool,
     pub enable_panic_mode: bool,
     pub stop_on_fail_or_change_map: bool,
+    #[serde(default = "stop_on_player_die_default")]
+    pub stop_on_player_die: bool,
     #[serde(default, deserialize_with = "deserialize_with_ok_or_default")]
     pub cycle_run_stop: CycleRunStopMode,
     #[serde(default = "cycle_run_duration_millis_default")]
@@ -249,6 +251,7 @@ impl Default for Settings {
             input_method: InputMethod::default(),
             input_method_rpc_server_url: String::default(),
             stop_on_fail_or_change_map: false,
+            stop_on_player_die: stop_on_player_die_default(),
             cycle_run_stop: CycleRunStopMode::default(),
             cycle_run_duration_millis: cycle_run_duration_millis_default(),
             cycle_stop_duration_millis: cycle_stop_duration_millis_default(),
@@ -264,6 +267,10 @@ impl Default for Settings {
 }
 
 impl_identifiable!(Settings);
+
+fn stop_on_player_die_default() -> bool {
+    true
+}
 
 fn cycle_run_duration_millis_default() -> u64 {
     14400000 // 4 hours
@@ -368,6 +375,8 @@ pub struct Character {
     pub extreme_gold_potion_key: KeyBindingConfiguration,
     #[serde(default)]
     pub vip_booster_key: KeyBindingConfiguration,
+    #[serde(default)]
+    pub hexa_booster_key: KeyBindingConfiguration,
     pub class: Class,
     #[serde(default)]
     pub disable_double_jumping: bool,
@@ -446,6 +455,7 @@ impl Default for Character {
             extreme_green_potion_key: KeyBindingConfiguration::default(),
             extreme_gold_potion_key: KeyBindingConfiguration::default(),
             vip_booster_key: KeyBindingConfiguration::default(),
+            hexa_booster_key: KeyBindingConfiguration::default(),
             class: Class::default(),
             disable_double_jumping: false,
             disable_adjusting: false,
