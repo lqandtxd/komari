@@ -181,8 +181,6 @@ pub trait Rotator: Debug + 'static {
 
 #[derive(Default, Debug)]
 pub struct DefaultRotator {
-    // This is literally free postfix increment!
-    id_counter: AtomicU32,
     normal_actions: Vec<(u32, RotatorAction)>,
     normal_queuing_linked_action: Option<(u32, Box<LinkedAction>)>,
     normal_index: usize,
@@ -842,7 +840,7 @@ impl Rotator for DefaultRotator {
             match condition {
                 ActionCondition::EveryMillis(_) | ActionCondition::ErdaShowerOffCooldown => {
                     self.priority_actions.insert(
-                        self.id_counter.fetch_add(1, Ordering::Relaxed),
+                        next_action_id(),
                         priority_action(action, condition, queue_to_front),
                     );
                 }
@@ -850,8 +848,7 @@ impl Rotator for DefaultRotator {
                     if matches!(self.normal_rotate_mode, RotatorMode::AutoMobbing(_, _)) {
                         continue;
                     }
-                    self.normal_actions
-                        .push((self.id_counter.fetch_add(1, Ordering::Relaxed), action))
+                    self.normal_actions.push((next_action_id(), action))
                 }
                 ActionCondition::Linked => unreachable!(),
             }
@@ -862,34 +859,32 @@ impl Rotator for DefaultRotator {
             .any(|(buff, _)| matches!(buff, BuffKind::Familiar))
         {
             self.priority_actions.insert(
-                self.id_counter.fetch_add(1, Ordering::Relaxed),
+                next_action_id(),
                 familiar_essence_replenish_priority_action(familiar_essence_key),
             );
         }
         if enable_rune_solving {
-            self.priority_actions.insert(
-                self.id_counter.fetch_add(1, Ordering::Relaxed),
-                solve_rune_priority_action(),
-            );
+            self.priority_actions
+                .insert(next_action_id(), solve_rune_priority_action());
         }
         match elite_boss_behavior {
             EliteBossBehavior::None => (),
             EliteBossBehavior::CycleChannel => {
                 self.priority_actions.insert(
-                    self.id_counter.fetch_add(1, Ordering::Relaxed),
+                    next_action_id(),
                     elite_boss_change_channel_priority_action(),
                 );
             }
             EliteBossBehavior::UseKey => {
                 self.priority_actions.insert(
-                    self.id_counter.fetch_add(1, Ordering::Relaxed),
+                    next_action_id(),
                     elite_boss_use_key_priority_action(elite_boss_behavior_key),
                 );
             }
         }
         if enable_familiars_swapping {
             self.priority_actions.insert(
-                self.id_counter.fetch_add(1, Ordering::Relaxed),
+                next_action_id(),
                 priority_action(
                     RotatorAction::Single(PlayerAction::FamiliarsSwap(FamiliarsSwap {
                         swappable_slots: familiar_swappable_slots,
@@ -901,29 +896,23 @@ impl Rotator for DefaultRotator {
             );
         }
         if enable_panic_mode {
-            self.priority_actions.insert(
-                self.id_counter.fetch_add(1, Ordering::Relaxed),
-                panic_priority_action(),
-            );
+            self.priority_actions
+                .insert(next_action_id(), panic_priority_action());
         }
         if enable_using_vip_booster {
-            self.priority_actions.insert(
-                self.id_counter.fetch_add(1, Ordering::Relaxed),
-                use_booster_priority_action(Booster::Vip),
-            );
+            self.priority_actions
+                .insert(next_action_id(), use_booster_priority_action(Booster::Vip));
         }
         if enable_using_hexa_booster {
-            self.priority_actions.insert(
-                self.id_counter.fetch_add(1, Ordering::Relaxed),
-                use_booster_priority_action(Booster::Hexa),
-            );
+            self.priority_actions
+                .insert(next_action_id(), use_booster_priority_action(Booster::Hexa));
         }
         if !matches!(
             hexa_booster_exchange_condition,
             ExchangeHexaBoosterCondition::None
         ) {
             self.priority_actions.insert(
-                self.id_counter.fetch_add(1, Ordering::Relaxed),
+                next_action_id(),
                 exchange_hexa_booster_priority_action(
                     hexa_booster_exchange_condition,
                     hexa_booster_exchange_amount,
@@ -933,16 +922,12 @@ impl Rotator for DefaultRotator {
         }
 
         for (i, key) in buffs.iter().copied() {
-            self.priority_actions.insert(
-                self.id_counter.fetch_add(1, Ordering::Relaxed),
-                buff_priority_action(i, key),
-            );
+            self.priority_actions
+                .insert(next_action_id(), buff_priority_action(i, key));
         }
 
-        self.priority_actions.insert(
-            self.id_counter.fetch_add(1, Ordering::Relaxed),
-            unstuck_priority_action(),
-        );
+        self.priority_actions
+            .insert(next_action_id(), unstuck_priority_action());
     }
 
     #[inline]
@@ -1149,7 +1134,7 @@ fn solve_rune_priority_action() -> PriorityAction {
                 return ConditionResult::Ignore;
             }
 
-            if !at_least_millis_passed_since(info.last_queued_time, 5000) {
+            if !at_least_millis_passed_since(info.last_queued_time, 20000) {
                 return ConditionResult::Skip;
             }
 
@@ -1502,6 +1487,12 @@ fn should_queue_fixed_action(
         return false;
     }
     true
+}
+
+fn next_action_id() -> u32 {
+    static NEXT_ID: AtomicU32 = AtomicU32::new(0);
+
+    NEXT_ID.fetch_add(1, Ordering::Relaxed)
 }
 
 #[cfg(test)]

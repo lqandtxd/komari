@@ -2724,7 +2724,7 @@ fn detect_hexa_sol_erda(mat: &impl ToInputArray) -> Result<SolErda> {
     });
     static EMPTY_TEMPLATE: LazyLock<Mat> = LazyLock::new(|| {
         imgcodecs::imdecode(
-            include_bytes!(env!("HEXA_SOL_ERDA_FULL_TEMPLATE")),
+            include_bytes!(env!("HEXA_SOL_ERDA_EMPTY_TEMPLATE")),
             IMREAD_COLOR,
         )
         .unwrap()

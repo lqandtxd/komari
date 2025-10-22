@@ -225,7 +225,7 @@ fn update_exchanging(resources: &Resources, exchanging: &mut ExchangingBooster) 
             transition!(exchanging, State::Exchanging(timeout, bbox), {
                 let (mut x, y) = bbox_click_point(bbox);
                 if amount.is_none() {
-                    x += 30; // Clicking the input box
+                    x += 100; // Clicking the input box
                 }
 
                 resources.input.send_mouse(x, y, MouseKind::Click);
