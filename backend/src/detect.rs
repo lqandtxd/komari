@@ -8,10 +8,9 @@ use std::{
 
 use anyhow::{Result, anyhow, bail};
 use base64::{Engine, prelude::BASE64_STANDARD};
-use dyn_clone::DynClone;
 use log::{debug, error, info};
 #[cfg(test)]
-use mockall::mock;
+use mockall::automock;
 use opencv::{
     boxed_ref::BoxedRef,
     core::{
@@ -28,7 +27,7 @@ use opencv::{
     imgcodecs::{self, IMREAD_COLOR, IMREAD_GRAYSCALE, imdecode, imencode_def},
     imgproc::{
         CC_STAT_AREA, CC_STAT_HEIGHT, CC_STAT_LEFT, CC_STAT_TOP, CC_STAT_WIDTH,
-        CHAIN_APPROX_SIMPLE, COLOR_BGR2HSV_FULL, COLOR_BGRA2BGR, COLOR_BGRA2GRAY, COLOR_BGRA2RGB,
+        CHAIN_APPROX_SIMPLE, COLOR_BGR2HSV_FULL, COLOR_BGR2RGB, COLOR_BGRA2BGR, COLOR_BGRA2GRAY,
         INTER_CUBIC, INTER_LINEAR, MORPH_RECT, RETR_EXTERNAL, THRESH_BINARY, TM_CCOEFF_NORMED,
         TM_SQDIFF_NORMED, bounding_rect, connected_components_with_stats, contour_area,
         cvt_color_def, dilate_def, find_contours_def, get_structuring_element_def, match_template,
@@ -152,10 +151,13 @@ pub enum BoosterKind {
 }
 
 /// A trait for detecting objects from provided frame.
-pub trait Detector: 'static + Send + DynClone + Debug {
+#[cfg_attr(test, automock)]
+pub trait Detector: Debug + Send + Sync {
+    /// Gets the original [`OwnedMat`].
     fn mat(&self) -> &OwnedMat;
 
-    fn grayscale_mat(&self) -> &Mat;
+    /// Gets the grayscale version.
+    fn grayscale(&self) -> &Mat;
 
     /// Detects a list of mobs.
     ///
@@ -309,141 +311,79 @@ pub trait Detector: 'static + Send + DynClone + Debug {
     fn detect_hexa_sol_erda(&self) -> Result<SolErda>;
 }
 
-#[cfg(test)]
-mock! {
-    pub Detector {}
-
-    impl Detector for Detector {
-        fn mat(&self) -> &OwnedMat;
-        fn grayscale_mat(&self) -> &Mat;
-        fn detect_mobs(&self, minimap: Rect, bound: Rect, player: Point) -> Result<Vec<Point>>;
-        fn detect_esc_settings(&self) -> bool;
-        fn detect_popup_confirm_button(&self) -> Result<Rect>;
-        fn detect_popup_ok_new_button(&self) -> Result<Rect>;
-        fn detect_elite_boss_bar(&self) -> bool;
-        fn detect_minimap(&self, border_threshold: u8) -> Result<Rect>;
-        fn detect_minimap_name(&self, minimap: Rect) -> Result<Rect>;
-        fn detect_minimap_match(
-            &self,
-            minimap_snapshot: &Mat,
-            minimap_snapshot_grayscale: bool,
-            minimap_name_snapshot: &Mat,
-            minimap_bbox: Rect,
-            minimap_name_bbox: Rect,
-        ) -> Result<f64>;
-        fn detect_minimap_portals(&self, minimap: Rect) -> Vec<Rect>;
-        fn detect_minimap_rune(&self, minimap: Rect) -> Result<Rect>;
-        fn detect_player(&self, minimap: Rect) -> Result<Rect>;
-        fn detect_player_kind(&self, minimap: Rect, kind: OtherPlayerKind) -> bool;
-        fn detect_player_is_dead(&self) -> bool;
-        fn detect_player_in_cash_shop(&self) -> bool;
-        fn detect_player_health_bar(&self) -> Result<Rect>;
-        fn detect_player_current_max_health_bars(&self, health_bar: Rect) -> Result<(Rect, Rect)>;
-        fn detect_player_health(&self, current_bar: Rect, max_bar: Rect) -> Result<(u32, u32)>;
-        fn detect_player_buff(&self, kind: BuffKind) -> bool;
-        fn detect_rune_arrows<'a>(
-            &self,
-            calibrating: ArrowsCalibrating,
-        ) -> Result<ArrowsState>;
-        fn detect_erda_shower(&self) -> Result<Rect>;
-        fn detect_familiar_save_button(&self) -> Result<Rect>;
-        fn detect_familiar_setup_button(&self) -> Result<Rect>;
-        fn detect_familiar_level_button(&self) -> Result<Rect>;
-        fn detect_familiar_slots(&self) -> Vec<(Rect, bool)>;
-        fn detect_familiar_slot_is_free(&self, slot: Rect) -> bool;
-        fn detect_familiar_hover_level(&self) -> Result<FamiliarLevel>;
-        fn detect_familiar_cards(&self) -> Vec<(Rect, FamiliarRank)>;
-        fn detect_familiar_scrollbar(&self) -> Result<Rect>;
-        fn detect_familiar_menu_opened(&self) -> bool;
-        fn detect_familiar_essence_depleted(&self) -> bool;
-        fn detect_change_channel_menu_opened(&self) -> bool;
-        fn detect_chat_menu_opened(&self) -> bool;
-        fn detect_admin_visible(&self) -> bool;
-        fn detect_timer_visible(&self) -> bool;
-        fn detect_quick_slots_booster(&self, kind: BoosterKind) -> Result<QuickSlotsBooster>;
-        fn detect_hexa_quick_menu(&self) -> Result<Rect>;
-        fn detect_hexa_erda_conversion_button(&self) -> Result<Rect>;
-        fn detect_hexa_booster_button(&self) -> Result<Rect>;
-        fn detect_hexa_max_button(&self) -> Result<Rect>;
-        fn detect_hexa_convert_button(&self) -> Result<Rect>;
-        fn detect_hexa_sol_erda(&self) -> Result<SolErda>;
-    }
-
-    impl Debug for Detector {
-        fn fmt<'a, 'b, 'c>(&'a self, f: &'b mut std::fmt::Formatter<'c> ) -> std::fmt::Result;
-    }
-
-    impl Clone for Detector {
-        fn clone(&self) -> Self;
-    }
-}
-
 type MatFn = Box<dyn FnOnce() -> Mat + Send>;
 
 /// A detector that lazily transform `Mat`.
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct DefaultDetector {
-    mat: Arc<OwnedMat>,
-    grayscale: Arc<LazyLock<Mat, MatFn>>,
-    buffs_grayscale: Arc<LazyLock<Mat, MatFn>>,
+    bgra: Arc<OwnedMat>,
+    bgr: LazyLock<Mat, MatFn>,
+    grayscale: LazyLock<Mat, MatFn>,
     localization: Arc<Localization>,
 }
 
 impl DefaultDetector {
     pub fn new(mat: OwnedMat, localization: Arc<Localization>) -> DefaultDetector {
-        let mat = Arc::new(mat);
-        let grayscale = mat.clone();
-        let grayscale = Arc::new(LazyLock::<Mat, MatFn>::new(Box::new(move || {
-            to_grayscale(&*grayscale, true)
-        })));
-        let buffs_grayscale = grayscale.clone();
-        let buffs_grayscale = Arc::new(LazyLock::<Mat, MatFn>::new(Box::new(move || {
-            to_buffs_region(&**buffs_grayscale).clone_pointee()
-        })));
+        let bgra = Arc::new(mat);
+
+        let cloned = bgra.clone();
+        let bgr = LazyLock::<Mat, MatFn>::new(Box::new(move || to_bgr(&*cloned)));
+
+        let cloned = bgra.clone();
+        let grayscale = LazyLock::<Mat, MatFn>::new(Box::new(move || to_grayscale(&*cloned, true)));
+
         Self {
-            mat,
+            bgra,
+            bgr,
             grayscale,
-            buffs_grayscale,
             localization,
         }
+    }
+
+    fn bgra(&self) -> &OwnedMat {
+        &self.bgra
+    }
+
+    fn bgr(&self) -> &Mat {
+        &self.bgr
     }
 }
 
 impl Detector for DefaultDetector {
     fn mat(&self) -> &OwnedMat {
-        &self.mat
+        self.bgra()
     }
 
-    fn grayscale_mat(&self) -> &Mat {
+    fn grayscale(&self) -> &Mat {
         &self.grayscale
     }
 
     fn detect_mobs(&self, minimap: Rect, bound: Rect, player: Point) -> Result<Vec<Point>> {
-        detect_mobs(&*self.mat, minimap, bound, player)
+        detect_mobs(self.bgr(), minimap, bound, player)
     }
 
     fn detect_esc_settings(&self) -> bool {
-        detect_esc_settings(&**self.grayscale, &self.localization)
+        detect_esc_settings(self.bgr(), self.grayscale(), &self.localization)
     }
 
     fn detect_popup_confirm_button(&self) -> Result<Rect> {
-        detect_popup_confirm_button(&**self.grayscale, &self.localization)
+        detect_popup_confirm_button(self.grayscale(), &self.localization)
     }
 
     fn detect_popup_ok_new_button(&self) -> Result<Rect> {
-        detect_popup_ok_new_button(&**self.grayscale, &self.localization)
+        detect_popup_ok_new_button(self.grayscale(), &self.localization)
     }
 
     fn detect_elite_boss_bar(&self) -> bool {
-        detect_elite_boss_bar(&**self.grayscale)
+        detect_elite_boss_bar(self.grayscale())
     }
 
     fn detect_minimap(&self, border_threshold: u8) -> Result<Rect> {
-        detect_minimap(&*self.mat, border_threshold)
+        detect_minimap(self.bgr(), border_threshold)
     }
 
     fn detect_minimap_name(&self, minimap: Rect) -> Result<Rect> {
-        detect_minimap_name(&**self.grayscale, minimap)
+        detect_minimap_name(self.grayscale(), minimap)
     }
 
     fn detect_minimap_match(
@@ -455,8 +395,8 @@ impl Detector for DefaultDetector {
         minimap_name_bbox: Rect,
     ) -> Result<f64> {
         detect_minimap_match(
-            &*self.mat,
-            &**self.grayscale,
+            self.bgra(),
+            self.grayscale(),
             minimap_snapshot,
             minimap_snapshot_grayscale,
             minimap_name_snapshot,
@@ -466,43 +406,39 @@ impl Detector for DefaultDetector {
     }
 
     fn detect_minimap_portals(&self, minimap: Rect) -> Vec<Rect> {
-        let minimap_color = to_bgr(&self.mat.roi(minimap).unwrap());
-        detect_minimap_portals(minimap_color)
+        detect_minimap_portals(self.bgr().roi(minimap).unwrap())
     }
 
     fn detect_minimap_rune(&self, minimap: Rect) -> Result<Rect> {
-        let minimap_color = to_bgr(&self.mat.roi(minimap)?);
-        detect_minimap_rune(&minimap_color)
+        detect_minimap_rune(&self.bgr().roi(minimap).unwrap())
     }
 
     fn detect_player(&self, minimap: Rect) -> Result<Rect> {
-        let minimap_color = to_bgr(&self.mat.roi(minimap)?);
-        detect_player(&minimap_color)
+        detect_player(&self.bgr().roi(minimap).unwrap())
     }
 
     fn detect_player_kind(&self, minimap: Rect, kind: OtherPlayerKind) -> bool {
-        let minimap_color = to_bgr(&self.mat.roi(minimap).unwrap());
-        detect_player_kind(&minimap_color, kind)
+        detect_player_kind(&self.bgr().roi(minimap).unwrap(), kind)
     }
 
     fn detect_player_is_dead(&self) -> bool {
-        detect_player_is_dead(&**self.grayscale)
+        detect_player_is_dead(self.grayscale())
     }
 
     fn detect_player_in_cash_shop(&self) -> bool {
-        detect_player_in_cash_shop(&**self.grayscale, &self.localization)
+        detect_player_in_cash_shop(self.grayscale(), &self.localization)
     }
 
     fn detect_player_health_bar(&self) -> Result<Rect> {
-        detect_player_health_bar(&**self.grayscale)
+        detect_player_health_bar(self.grayscale())
     }
 
     fn detect_player_current_max_health_bars(&self, health_bar: Rect) -> Result<(Rect, Rect)> {
-        detect_player_current_max_health_bars(&*self.mat, &**self.grayscale, health_bar)
+        detect_player_current_max_health_bars(self.bgr(), self.grayscale(), health_bar)
     }
 
     fn detect_player_health(&self, current_bar: Rect, max_bar: Rect) -> Result<(u32, u32)> {
-        detect_player_health(&*self.mat, current_bar, max_bar)
+        detect_player_health(self.bgr(), current_bar, max_bar)
     }
 
     fn detect_player_buff(&self, kind: BuffKind) -> bool {
@@ -516,7 +452,7 @@ impl Detector for DefaultDetector {
             | BuffKind::ExpCouponX4
             | BuffKind::BonusExpCoupon
             | BuffKind::ForTheGuild
-            | BuffKind::HardHitter => &**self.buffs_grayscale,
+            | BuffKind::HardHitter => &to_buffs_region(self.grayscale()),
             BuffKind::LegionWealth
             | BuffKind::LegionLuck
             | BuffKind::WealthAcquisitionPotion
@@ -526,106 +462,106 @@ impl Detector for DefaultDetector {
             | BuffKind::ExtremeRedPotion
             | BuffKind::ExtremeBluePotion
             | BuffKind::ExtremeGreenPotion
-            | BuffKind::ExtremeGoldPotion => &to_bgr(&to_buffs_region(&*self.mat)),
+            | BuffKind::ExtremeGoldPotion => &to_buffs_region(self.bgr()),
         };
         detect_player_buff(mat, kind)
     }
 
     fn detect_rune_arrows(&self, calibrating: ArrowsCalibrating) -> Result<ArrowsState> {
-        detect_rune_arrows(&*self.mat, calibrating)
+        detect_rune_arrows(self.bgr(), calibrating)
     }
 
     fn detect_erda_shower(&self) -> Result<Rect> {
-        detect_erda_shower(&**self.grayscale)
+        detect_erda_shower(self.grayscale())
     }
 
     fn detect_familiar_save_button(&self) -> Result<Rect> {
-        detect_familiar_save_button(&to_bgr(&*self.mat), &self.localization)
+        detect_familiar_save_button(self.bgr(), &self.localization)
     }
 
     fn detect_familiar_setup_button(&self) -> Result<Rect> {
-        detect_familiar_setup_button(&to_bgr(&*self.mat), &self.localization)
+        detect_familiar_setup_button(self.bgr(), &self.localization)
     }
 
     fn detect_familiar_level_button(&self) -> Result<Rect> {
-        detect_familiar_level_button(&to_bgr(&*self.mat), &self.localization)
+        detect_familiar_level_button(self.bgr(), &self.localization)
     }
 
     fn detect_familiar_slots(&self) -> Vec<(Rect, bool)> {
-        detect_familiar_slots(&to_bgr(&*self.mat))
+        detect_familiar_slots(self.bgr())
     }
 
     fn detect_familiar_slot_is_free(&self, slot: Rect) -> bool {
-        detect_familiar_slot_is_free(&to_bgr(&self.mat.roi(slot).unwrap()))
+        detect_familiar_slot_is_free(&self.bgr().roi(slot).unwrap())
     }
 
     fn detect_familiar_hover_level(&self) -> Result<FamiliarLevel> {
-        detect_familiar_hover_level(&to_bgr(&*self.mat))
+        detect_familiar_hover_level(self.bgr())
     }
 
     fn detect_familiar_cards(&self) -> Vec<(Rect, FamiliarRank)> {
-        detect_familiar_cards(&to_bgr(&*self.mat))
+        detect_familiar_cards(self.bgr())
     }
 
     fn detect_familiar_scrollbar(&self) -> Result<Rect> {
-        detect_familiar_scrollbar(&to_grayscale(&*self.mat, false))
+        detect_familiar_scrollbar(&to_grayscale(self.bgra(), false))
     }
 
     fn detect_familiar_menu_opened(&self) -> bool {
-        detect_familiar_menu_opened(&**self.grayscale)
+        detect_familiar_menu_opened(self.grayscale())
     }
 
     fn detect_familiar_essence_depleted(&self) -> bool {
-        detect_familiar_essence_depleted(&**self.buffs_grayscale)
+        detect_familiar_essence_depleted(&to_buffs_region(self.grayscale()))
     }
 
     fn detect_change_channel_menu_opened(&self) -> bool {
-        detect_change_channel_menu_opened(&**self.grayscale, &self.localization)
+        detect_change_channel_menu_opened(self.grayscale(), &self.localization)
     }
 
     fn detect_chat_menu_opened(&self) -> bool {
-        detect_chat_menu_opened(&**self.grayscale)
+        detect_chat_menu_opened(self.grayscale())
     }
 
     fn detect_admin_visible(&self) -> bool {
-        detect_admin_visible(&**self.grayscale)
+        detect_admin_visible(self.grayscale())
     }
 
     fn detect_timer_visible(&self) -> bool {
-        detect_timer_visible(&**self.grayscale, &self.localization)
+        detect_timer_visible(self.grayscale(), &self.localization)
     }
 
     fn detect_quick_slots_booster(&self, kind: BoosterKind) -> Result<QuickSlotsBooster> {
-        detect_booster(&to_quick_slots_region(&**self.grayscale).0, kind)
+        detect_booster(&to_quick_slots_region(self.grayscale()).0, kind)
     }
 
     fn detect_hexa_quick_menu(&self) -> Result<Rect> {
-        detect_hexa_quick_menu(&**self.grayscale)
+        detect_hexa_quick_menu(self.grayscale())
     }
 
     fn detect_hexa_erda_conversion_button(&self) -> Result<Rect> {
-        detect_hexa_erda_conversion_button(&to_bgr(&*self.mat))
+        detect_hexa_erda_conversion_button(self.bgr())
     }
 
     fn detect_hexa_booster_button(&self) -> Result<Rect> {
-        detect_hexa_booster_button(&to_bgr(&*self.mat))
+        detect_hexa_booster_button(self.bgr())
     }
 
     fn detect_hexa_max_button(&self) -> Result<Rect> {
-        detect_hexa_max_button(&to_bgr(&*self.mat))
+        detect_hexa_max_button(self.bgr())
     }
 
     fn detect_hexa_convert_button(&self) -> Result<Rect> {
-        detect_hexa_convert_button(&to_bgr(&*self.mat))
+        detect_hexa_convert_button(self.bgr())
     }
 
     fn detect_hexa_sol_erda(&self) -> Result<SolErda> {
-        detect_hexa_sol_erda(&**self.grayscale)
+        detect_hexa_sol_erda(self.grayscale())
     }
 }
 
 fn detect_mobs(
-    mat: &impl MatTraitConst,
+    bgr: &impl MatTraitConst,
     minimap: Rect,
     bound: Rect,
     player: Point,
@@ -707,8 +643,8 @@ fn detect_mobs(
         }
     }
 
-    let size = mat.size().unwrap();
-    let (mat_in, w_ratio, h_ratio, left, top) = preprocess_for_yolo(mat);
+    let size = bgr.size().unwrap();
+    let (mat_in, w_ratio, h_ratio, left, top) = preprocess_for_yolo(bgr);
     let mut model = MOB_MODEL.lock().unwrap();
     let result = model.run([to_input_value(&mat_in)]).unwrap();
     let result = from_output_value(&result);
@@ -782,43 +718,43 @@ pub static POPUP_CANCEL_OLD_TEMPLATE: LazyLock<Mat> = LazyLock::new(|| {
     .unwrap()
 });
 
-fn detect_esc_settings(mat: &impl ToInputArray, localization: &Localization) -> bool {
-    static ESC_MENU_X_TEMPLATE: LazyLock<Mat> = LazyLock::new(|| {
-        imgcodecs::imdecode(
-            include_bytes!(env!("ESC_MENU_X_TEMPLATE")),
-            IMREAD_GRAYSCALE,
-        )
-        .unwrap()
+fn detect_esc_settings(
+    bgr: &impl ToInputArray,
+    grayscale: &impl ToInputArray,
+    localization: &Localization,
+) -> bool {
+    static ESC_MENU_TEMPLATE: LazyLock<Mat> = LazyLock::new(|| {
+        imgcodecs::imdecode(include_bytes!(env!("ESC_MENU_TEMPLATE")), IMREAD_COLOR).unwrap()
     });
 
-    if detect_template(mat, &*ESC_MENU_X_TEMPLATE, Point::default(), 0.75).is_ok() {
+    if detect_template(bgr, &*ESC_MENU_TEMPLATE, Point::default(), 0.75).is_ok() {
         return true;
     }
-    if detect_popup_confirm_button(mat, localization).is_ok() {
+    if detect_popup_confirm_button(grayscale, localization).is_ok() {
         return true;
     }
-    if detect_popup_yes_button(mat, localization).is_ok() {
+    if detect_popup_yes_button(grayscale, localization).is_ok() {
         return true;
     }
-    if detect_popup_next_button(mat, localization).is_ok() {
+    if detect_popup_next_button(grayscale, localization).is_ok() {
         return true;
     }
-    if detect_popup_end_chat_button(mat, localization).is_ok() {
+    if detect_popup_end_chat_button(grayscale, localization).is_ok() {
         return true;
     }
-    if detect_popup_ok_new_button(mat, localization).is_ok() {
+    if detect_popup_ok_new_button(grayscale, localization).is_ok() {
         return true;
     }
-    if detect_popup_ok_old_button(mat, localization).is_ok() {
+    if detect_popup_ok_old_button(grayscale, localization).is_ok() {
         return true;
     }
-    if detect_popup_cancel_new_button(mat, localization).is_ok() {
+    if detect_popup_cancel_new_button(grayscale, localization).is_ok() {
         return true;
     }
-    if detect_popup_cancel_old_button(mat, localization).is_ok() {
+    if detect_popup_cancel_old_button(grayscale, localization).is_ok() {
         return true;
     }
-    if detect_hexa_menu(mat) {
+    if detect_hexa_menu(grayscale) {
         return true;
     }
 
@@ -1151,7 +1087,7 @@ fn detect_minimap_name(mat: &impl MatTraitConst, minimap: Rect) -> Result<Rect> 
 }
 
 fn detect_minimap_match<T: ToInputArray + MatTraitConst>(
-    mat: &impl MatTraitConst,
+    bgra: &impl MatTraitConst,
     grayscale: &impl MatTraitConst,
     minimap_snapshot: &T,
     minimap_snapshot_grayscale: bool,
@@ -1169,14 +1105,14 @@ fn detect_minimap_match<T: ToInputArray + MatTraitConst>(
     let minimap_name = grayscale.roi(minimap_name_bbox)?;
 
     let minimap_bbox = expand_bbox(
-        Some(mat.size().expect("size available")),
+        Some(bgra.size().expect("size available")),
         minimap_bbox,
         EXPAND_BBOX_SIZE,
     );
     let minimap = if minimap_snapshot_grayscale {
-        to_grayscale(&mat.roi(minimap_bbox)?, false)
+        to_grayscale(&bgra.roi(minimap_bbox)?, false)
     } else {
-        to_bgr(&mat.roi(minimap_bbox)?)
+        bgra.roi(minimap_bbox)?.clone_pointee()
     };
 
     let name_score = detect_template_single(
@@ -2923,7 +2859,7 @@ fn extract_texts(mat: &impl MatTraitConst, bboxes: &[Rect]) -> Vec<String> {
             let mut mat = mat.roi(word).unwrap().clone_pointee();
             unsafe {
                 mat.modify_inplace(|mat, mat_mut| {
-                    cvt_color_def(mat, mat_mut, COLOR_BGRA2RGB).unwrap();
+                    cvt_color_def(mat, mat_mut, COLOR_BGR2RGB).unwrap();
                 });
             }
             recognizier.recognize(&mat).ok()
@@ -3123,7 +3059,7 @@ fn remap_from_yolo(
     )
 }
 
-/// Preprocesses a BGRA `Mat` image to a normalized and resized RGB `Mat` image with type `f32`
+/// Preprocesses a BGR `Mat` image to a normalized and resized RGB `Mat` image with type `f32`
 /// for YOLO detection.
 ///
 /// Returns a triplet of `(Mat, width_ratio, height_ratio, left, top)`
@@ -3150,7 +3086,7 @@ fn preprocess_for_yolo(mat: &impl MatTraitConst) -> (Mat, f32, f32, i32, i32) {
     // SAFETY: all of the functions below can be called in place.
     unsafe {
         mat.modify_inplace(|mat, mat_mut| {
-            cvt_color_def(mat, mat_mut, COLOR_BGRA2RGB).unwrap();
+            cvt_color_def(mat, mat_mut, COLOR_BGR2RGB).unwrap();
             resize(
                 mat,
                 mat_mut,
@@ -3177,7 +3113,7 @@ fn preprocess_for_yolo(mat: &impl MatTraitConst) -> (Mat, f32, f32, i32, i32) {
     (mat, min_ratio, min_ratio, left, top)
 }
 
-/// Preprocesses a BGRA `Mat` image to a normalized and resized RGB `Mat` image with type `f32`
+/// Preprocesses a BGR `Mat` image to a normalized and resized RGB `Mat` image with type `f32`
 /// for text bounding boxes detection.
 ///
 /// The preprocess is adapted from: https://github.com/clovaai/CRAFT-pytorch/blob/master/imgproc.py
@@ -3203,7 +3139,7 @@ fn preprocess_for_text_bboxes(mat: &impl MatTraitConst) -> (Mat, f32, f32) {
     // SAFETY: all of the below functions can be called in place
     unsafe {
         mat.modify_inplace(|mat, mat_mut| {
-            cvt_color_def(mat, mat_mut, COLOR_BGRA2RGB).unwrap();
+            cvt_color_def(mat, mat_mut, COLOR_BGR2RGB).unwrap();
             resize(
                 mat,
                 mat_mut,
@@ -3273,14 +3209,13 @@ fn to_quick_slots_region(mat: &impl MatTraitConst) -> (BoxedRef<'_, Mat>, Rect) 
     (crop_roi, crop_bbox)
 }
 
-/// Converts a BGRA `Mat` image to HSV.
+/// Converts a BGR `Mat` image to HSV.
 #[inline]
 fn to_hsv(mat: &impl MatTraitConst) -> Mat {
     let mut mat = mat.try_clone().unwrap();
     unsafe {
         // SAFETY: can be modified inplace
         mat.modify_inplace(|mat, mat_mut| {
-            cvt_color_def(mat, mat_mut, COLOR_BGRA2BGR).unwrap();
             cvt_color_def(mat, mat_mut, COLOR_BGR2HSV_FULL).unwrap();
         });
     }

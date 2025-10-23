@@ -28,7 +28,7 @@ fn main() {
     let player_guildie = dir.join("player_guildie_ideal_ratio.png");
     let player_friend = dir.join("player_friend_ideal_ratio.png");
 
-    let esc_menu_x = dir.join("esc_menu_x_ideal_ratio.png");
+    let esc_menu = dir.join("esc_menu_ideal_ratio.png");
     let tomb = dir.join("tomb_ideal_ratio.png");
     let cash_shop = dir.join("cash_shop.png");
     let erda_shower = dir.join("erda_shower_ideal_ratio.png");
@@ -200,8 +200,8 @@ fn main() {
     );
 
     println!(
-        "cargo:rustc-env=ESC_MENU_X_TEMPLATE={}",
-        esc_menu_x.to_str().unwrap()
+        "cargo:rustc-env=ESC_MENU_TEMPLATE={}",
+        esc_menu.to_str().unwrap()
     );
     println!("cargo:rustc-env=TOMB_TEMPLATE={}", tomb.to_str().unwrap());
     println!(
