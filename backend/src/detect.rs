@@ -16,7 +16,7 @@ use opencv::{
     core::{
         BORDER_CONSTANT, CMP_EQ, CMP_GT, CV_8U, CV_32FC3, CV_32S, Mat, MatExprTraitConst, MatTrait,
         MatTraitConst, MatTraitConstManual, ModifyInplace, Point, Range, Rect, Scalar, Size,
-        ToInputArray, Vec4b, Vector, add, add_weighted_def, bitwise_and_def, compare,
+        ToInputArray, Vec3b, Vector, add, add_weighted_def, bitwise_and_def, compare,
         copy_make_border, divide2_def, extract_channel, find_non_zero, min_max_loc, no_array,
         subtract_def, transpose_nd,
     },
@@ -938,7 +938,7 @@ fn detect_minimap(mat: &impl MatTraitConst, border_threshold: u8) -> Result<Rect
     fn scan_border(minimap: &impl MatTraitConst, border: Border, border_threshold: u8) -> i32 {
         let mut counts = HashMap::<u32, u32>::new();
         let is_pixel_above_threshold =
-            |pixel: &[u8; 4]| pixel.iter().all(|&v| v >= border_threshold);
+            |pixel: &[u8; 3]| pixel.iter().all(|&v| v >= border_threshold);
         let (primary_len, secondary_len, flip_primary) = match border {
             Border::Top => (minimap.rows(), minimap.cols(), false),
             Border::Bottom => (minimap.rows(), minimap.cols(), true),
@@ -963,7 +963,7 @@ fn detect_minimap(mat: &impl MatTraitConst, border_threshold: u8) -> Result<Rect
                     Border::Left | Border::Right => (secondary, flipped_primary),
                 };
 
-                let pixel = minimap.at_2d::<Vec4b>(row, col).unwrap();
+                let pixel = minimap.at_2d::<Vec3b>(row, col).unwrap();
                 if is_pixel_above_threshold(pixel) {
                     count += 1;
                 } else {
