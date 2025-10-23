@@ -27,8 +27,6 @@ Map detection may fail or select the wrong map under the following conditions:
 - Below the minimap, there is a `Re-detect` button that can be used to force the bot to re-detect the current map.  
 - Move or reposition the minimap window.  
 
----
-
 ## Actions Contention
 
 `Every milliseconds` actions can sometimes lead to contention if their intervals are too close.
@@ -36,8 +34,6 @@ Map detection may fail or select the wrong map under the following conditions:
 For example, if you have two `Every milliseconds` actions running every 2 seconds, each followed by a short wait (e.g., 1 second), and a normal action in between, the normal action may never get a chance to execute properly.
 
 This situation is uncommon but can occur when multiple timed actions overlap too tightly.
-
----
 
 ## Default Ratio Game Resolution
 
@@ -48,16 +44,12 @@ Currently, `Default Ratio` game resolution is not supported because most detecti
 
 Using `Default Ratio` at `1920x1080` or higher causes the UI to appear blurry, making the bot fail to detect.
 
----
-
 ## Preventing Double Jumps
 
 > **Note:** This behavior is subject to change in future versions.
 
 If you want the bot to `walk instead of double jump` between two points, ensure that the horizontal distance (`x`) between them is `less than 25 units`.  
 At that distance, the bot considers the destination `close enough` to walk.
-
----
 
 ## Up Jump Key
 
@@ -87,16 +79,12 @@ Here are some general ideas on how to configure it and more specific cases can b
 
 - Enable `Up jump is flight`.
 
----
-
 ## Missing Installation
 
 If the bot fails to start or shows missing component errors on a fresh Windows installation, ensure the following dependencies are installed:
 
 - [**Visual C++ Redistributable 2015–2022**](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist#visual-studio-2015-2017-2019-and-2022)  
 - [**Microsoft WebView2 Runtime**](https://developer.microsoft.com/en-us/microsoft-edge/webview2?form=MA13LH)
-
----
 
 ## Unstucking State
 
@@ -110,6 +98,3 @@ However, it can also trigger incorrectly if setup issues occur.
 - When using remote control setup, the following can occur:
   - The `Num lock key` can cause incorrect key sending (e.g., sending `4826` instead of arrow keys) in `Default Input Method`. 
   - Running the bot remotely requires proper setup. Check the [remote control documentation](https://github.com/sasanquaa/komari/blob/master/docs/remote_control.md) for more details.
-
----
-
