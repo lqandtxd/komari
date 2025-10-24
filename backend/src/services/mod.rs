@@ -252,7 +252,7 @@ impl DefaultRequestHandler<'_> {
                 }
 
                 if self.service.settings.settings().stop_on_fail_or_change_map {
-                    self.update_halt_or_panic(true, false);
+                    self.update_halting(RotateKind::TemporaryHalt);
                 }
                 let _ = self
                     .resources

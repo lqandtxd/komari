@@ -31,6 +31,20 @@ select,
     border: none;
 }
 
+::picker(select)::-webkit-scrollbar {
+    width: 3px;
+    height: 3px;
+    background: var(--color-secondary-surface);
+}
+
+::picker(select)::-webkit-scrollbar-thumb {
+    background: var(--color-quarternary-surface);
+}
+
+::picker(select)::-webkit-scrollbar-track {
+    background: var(--color-tertiary-surface);
+}
+
 option::checkmark {
     order: 1;
     margin-left: auto;

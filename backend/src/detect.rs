@@ -541,19 +541,19 @@ impl Detector for DefaultDetector {
     }
 
     fn detect_hexa_erda_conversion_button(&self) -> Result<Rect> {
-        detect_hexa_erda_conversion_button(self.bgr())
+        detect_hexa_erda_conversion_button(self.bgr(), &self.localization)
     }
 
     fn detect_hexa_booster_button(&self) -> Result<Rect> {
-        detect_hexa_booster_button(self.bgr())
+        detect_hexa_booster_button(self.bgr(), &self.localization)
     }
 
     fn detect_hexa_max_button(&self) -> Result<Rect> {
-        detect_hexa_max_button(self.bgr())
+        detect_hexa_max_button(self.bgr(), &self.localization)
     }
 
     fn detect_hexa_convert_button(&self) -> Result<Rect> {
-        detect_hexa_convert_button(self.bgr())
+        detect_hexa_convert_button(self.bgr(), &self.localization)
     }
 
     fn detect_hexa_sol_erda(&self) -> Result<SolErda> {
@@ -2624,52 +2624,103 @@ fn detect_hexa_quick_menu(grayscale: &impl ToInputArray) -> Result<Rect> {
     detect_template(grayscale, &*TEMPLATE, Point::default(), 0.75)
 }
 
-fn detect_hexa_erda_conversion_button(bgr: &impl ToInputArray) -> Result<Rect> {
-    static TEMPLATE: LazyLock<Mat> = LazyLock::new(|| {
-        imgcodecs::imdecode(
-            include_bytes!(env!("HEXA_BUTTON_ERDA_CONVERSION_TEMPLATE")),
-            IMREAD_COLOR,
-        )
-        .unwrap()
-    });
+pub static HEXA_ERDA_CONVERSION_BUTTON_TEMPLATE: LazyLock<Mat> = LazyLock::new(|| {
+    imgcodecs::imdecode(
+        include_bytes!(env!("HEXA_BUTTON_ERDA_CONVERSION_TEMPLATE")),
+        IMREAD_COLOR,
+    )
+    .unwrap()
+});
 
-    detect_template(bgr, &*TEMPLATE, Point::default(), 0.75)
+fn detect_hexa_erda_conversion_button(
+    bgr: &impl ToInputArray,
+    localization: &Localization,
+) -> Result<Rect> {
+    let template = localization
+        .hexa_erda_conversion_button_base64
+        .as_ref()
+        .and_then(|base64| to_mat_from_base64(base64, false).ok());
+
+    detect_template(
+        bgr,
+        template
+            .as_ref()
+            .unwrap_or(&*HEXA_ERDA_CONVERSION_BUTTON_TEMPLATE),
+        Point::default(),
+        0.75,
+    )
 }
 
-fn detect_hexa_booster_button(bgr: &impl ToInputArray) -> Result<Rect> {
-    static TEMPLATE: LazyLock<Mat> = LazyLock::new(|| {
-        imgcodecs::imdecode(
-            include_bytes!(env!("HEXA_BUTTON_HEXA_BOOSTER_TEMPLATE")),
-            IMREAD_COLOR,
-        )
-        .unwrap()
-    });
+pub static HEXA_BOOSTER_BUTTON_TEMPLATE: LazyLock<Mat> = LazyLock::new(|| {
+    imgcodecs::imdecode(
+        include_bytes!(env!("HEXA_BUTTON_HEXA_BOOSTER_TEMPLATE")),
+        IMREAD_COLOR,
+    )
+    .unwrap()
+});
 
-    detect_template(bgr, &*TEMPLATE, Point::default(), 0.75)
+fn detect_hexa_booster_button(
+    bgr: &impl ToInputArray,
+    localization: &Localization,
+) -> Result<Rect> {
+    let template = localization
+        .hexa_booster_button_base64
+        .as_ref()
+        .and_then(|base64| to_mat_from_base64(base64, false).ok());
+
+    detect_template(
+        bgr,
+        template.as_ref().unwrap_or(&*HEXA_BOOSTER_BUTTON_TEMPLATE),
+        Point::default(),
+        0.75,
+    )
 }
 
-fn detect_hexa_max_button(bgr: &impl ToInputArray) -> Result<Rect> {
-    static TEMPLATE: LazyLock<Mat> = LazyLock::new(|| {
-        imgcodecs::imdecode(
-            include_bytes!(env!("HEXA_BUTTON_MAX_TEMPLATE")),
-            IMREAD_COLOR,
-        )
-        .unwrap()
-    });
+pub static HEXA_MAX_BUTTON_TEMPLATE: LazyLock<Mat> = LazyLock::new(|| {
+    imgcodecs::imdecode(
+        include_bytes!(env!("HEXA_BUTTON_MAX_TEMPLATE")),
+        IMREAD_COLOR,
+    )
+    .unwrap()
+});
 
-    detect_template(bgr, &*TEMPLATE, Point::default(), 0.75)
+fn detect_hexa_max_button(bgr: &impl ToInputArray, localization: &Localization) -> Result<Rect> {
+    let template = localization
+        .hexa_max_button_base64
+        .as_ref()
+        .and_then(|base64| to_mat_from_base64(base64, false).ok());
+
+    detect_template(
+        bgr,
+        template.as_ref().unwrap_or(&*HEXA_MAX_BUTTON_TEMPLATE),
+        Point::default(),
+        0.75,
+    )
 }
 
-fn detect_hexa_convert_button(bgr: &impl ToInputArray) -> Result<Rect> {
-    static TEMPLATE: LazyLock<Mat> = LazyLock::new(|| {
-        imgcodecs::imdecode(
-            include_bytes!(env!("HEXA_BUTTON_CONVERT_TEMPLATE")),
-            IMREAD_COLOR,
-        )
-        .unwrap()
-    });
+pub static HEXA_CONVERT_BUTTON_TEMPLATE: LazyLock<Mat> = LazyLock::new(|| {
+    imgcodecs::imdecode(
+        include_bytes!(env!("HEXA_BUTTON_CONVERT_TEMPLATE")),
+        IMREAD_COLOR,
+    )
+    .unwrap()
+});
 
-    detect_template(bgr, &*TEMPLATE, Point::default(), 0.75)
+fn detect_hexa_convert_button(
+    bgr: &impl ToInputArray,
+    localization: &Localization,
+) -> Result<Rect> {
+    let template = localization
+        .hexa_convert_button_base64
+        .as_ref()
+        .and_then(|base64| to_mat_from_base64(base64, false).ok());
+
+    detect_template(
+        bgr,
+        template.as_ref().unwrap_or(&*HEXA_CONVERT_BUTTON_TEMPLATE),
+        Point::default(),
+        0.75,
+    )
 }
 
 fn detect_hexa_sol_erda(grayscale: &impl ToInputArray) -> Result<SolErda> {

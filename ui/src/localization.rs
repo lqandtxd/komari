@@ -6,12 +6,12 @@ use backend::{
 };
 use dioxus::prelude::*;
 use futures_util::{StreamExt, future::OptionFuture};
-use rand::distr::{Alphanumeric, SampleString};
 
 use crate::{
     AppState,
     components::{
         button::{Button, ButtonStyle},
+        file::FileInput,
         labeled::Labeled,
         section::Section,
     },
@@ -20,6 +20,12 @@ use crate::{
 #[derive(Debug)]
 enum LocalizationUpdate {
     Update(Localization),
+}
+
+#[derive(PartialEq, Clone, Copy)]
+struct LocalizationContext {
+    localization: Memo<Localization>,
+    save_localization: Callback<Localization>,
 }
 
 #[component]
@@ -43,6 +49,11 @@ pub fn LocalizationScreen() -> Element {
         coroutine.send(LocalizationUpdate::Update(new_localization));
     });
 
+    use_context_provider(|| LocalizationContext {
+        localization: localization_view,
+        save_localization,
+    });
+
     use_future(move || async move {
         if localization.peek().is_none() {
             localization.set(Some(query_localization().await));
@@ -52,9 +63,10 @@ pub fn LocalizationScreen() -> Element {
     rsx! {
         div { class: "flex flex-col h-full overflow-y-auto",
             SectionInfo {}
-            SectionPopups { localization_view, save_localization }
-            SectionFamiliars { localization_view, save_localization }
-            SectionOthers { localization_view, save_localization }
+            SectionPopups {}
+            SectionFamiliars {}
+            SectionHexa {}
+            SectionOthers {}
         }
     }
 }
@@ -71,9 +83,11 @@ fn SectionInfo() -> Element {
     }
 
     #[component]
-    fn Data(description: &'static str) -> Element {
+    fn Data(description: &'static str, #[props(default)] rowspan: Option<usize>) -> Element {
         rsx! {
-            td { class: "text-xs text-secondary-text border-b border-secondary-border pt-2",
+            td {
+                class: "text-xs text-secondary-text border-b border-secondary-border pt-2 pr-1",
+                rowspan,
                 {description}
             }
         }
@@ -84,12 +98,14 @@ fn SectionInfo() -> Element {
             table { class: "table-fixed",
                 thead {
                     tr {
+                        Header { title: "Section" }
                         Header { title: "Function" }
                         Header { title: "Template(s)" }
                     }
                 }
                 tbody {
                     tr {
+                        Data { description: "Popups", rowspan: 3 }
                         Data { description: "Unstuck player through closing menu, popup, dialog, etc." }
                         Data { description: "All popups." }
                     }
@@ -102,6 +118,7 @@ fn SectionInfo() -> Element {
                         Data { description: "Ok (new) popup." }
                     }
                     tr {
+                        Data { description: "Familiars", rowspan: 3 }
                         Data { description: "Sort familiar cards by level before swapping." }
                         Data { description: "Familiar menu setup tab's setup level sort button." }
                     }
@@ -114,6 +131,24 @@ fn SectionInfo() -> Element {
                         Data { description: "Familiar menu's setup button." }
                     }
                     tr {
+                        Data { description: "HEXA", rowspan: 4 }
+                        Data { description: "Open Sol Erda version menu in HEXA Matrix." }
+                        Data { description: "Erda conversion button." }
+                    }
+                    tr {
+                        Data { description: "Open HEXA Booster exchange menu." }
+                        Data { description: "HEXA Booster button." }
+                    }
+                    tr {
+                        Data { description: "Select max HEXA Booster amount to exchange." }
+                        Data { description: "Max button." }
+                    }
+                    tr {
+                        Data { description: "Convert Sol Erda to HEXA Booster." }
+                        Data { description: "Convert button." }
+                    }
+                    tr {
+                        Data { description: "Others", rowspan: 3 }
                         Data { description: "Detect whether change channel menu is opened." }
                         Data { description: "Change channel text." }
                     }
@@ -148,10 +183,11 @@ fn SectionInfo() -> Element {
 }
 
 #[component]
-fn SectionPopups(
-    localization_view: Memo<Localization>,
-    save_localization: EventHandler<Localization>,
-) -> Element {
+fn SectionPopups() -> Element {
+    let context = use_context::<LocalizationContext>();
+    let localization = context.localization;
+    let save_localization = context.save_localization;
+
     rsx! {
         Section { title: "Popups",
             div { class: "grid grid-cols-2  gap-4",
@@ -161,10 +197,10 @@ fn SectionPopups(
                     on_value: move |image: Option<Vec<u8>>| async move {
                         save_localization(Localization {
                             popup_confirm_base64: to_base64(image, true).await,
-                            ..localization_view()
+                            ..localization()
                         });
                     },
-                    value: localization_view().popup_confirm_base64,
+                    value: localization().popup_confirm_base64,
                 }
                 LocalizationTemplateInput {
                     label: "Yes",
@@ -172,10 +208,10 @@ fn SectionPopups(
                     on_value: move |image: Option<Vec<u8>>| async move {
                         save_localization(Localization {
                             popup_yes_base64: to_base64(image, true).await,
-                            ..localization_view()
+                            ..localization()
                         });
                     },
-                    value: localization_view().popup_yes_base64,
+                    value: localization().popup_yes_base64,
                 }
                 LocalizationTemplateInput {
                     label: "Next",
@@ -183,10 +219,10 @@ fn SectionPopups(
                     on_value: move |image: Option<Vec<u8>>| async move {
                         save_localization(Localization {
                             popup_next_base64: to_base64(image, true).await,
-                            ..localization_view()
+                            ..localization()
                         });
                     },
-                    value: localization_view().popup_next_base64,
+                    value: localization().popup_next_base64,
                 }
                 LocalizationTemplateInput {
                     label: "End chat",
@@ -194,10 +230,10 @@ fn SectionPopups(
                     on_value: move |image: Option<Vec<u8>>| async move {
                         save_localization(Localization {
                             popup_end_chat_base64: to_base64(image, true).await,
-                            ..localization_view()
+                            ..localization()
                         });
                     },
-                    value: localization_view().popup_end_chat_base64,
+                    value: localization().popup_end_chat_base64,
                 }
                 LocalizationTemplateInput {
                     label: "Ok (new)",
@@ -205,10 +241,10 @@ fn SectionPopups(
                     on_value: move |image: Option<Vec<u8>>| async move {
                         save_localization(Localization {
                             popup_ok_new_base64: to_base64(image, true).await,
-                            ..localization_view()
+                            ..localization()
                         });
                     },
-                    value: localization_view().popup_ok_new_base64,
+                    value: localization().popup_ok_new_base64,
                 }
                 LocalizationTemplateInput {
                     label: "Ok (old)",
@@ -216,10 +252,10 @@ fn SectionPopups(
                     on_value: move |image: Option<Vec<u8>>| async move {
                         save_localization(Localization {
                             popup_ok_old_base64: to_base64(image, true).await,
-                            ..localization_view()
+                            ..localization()
                         });
                     },
-                    value: localization_view().popup_ok_old_base64,
+                    value: localization().popup_ok_old_base64,
                 }
                 LocalizationTemplateInput {
                     label: "Cancel (new)",
@@ -227,10 +263,10 @@ fn SectionPopups(
                     on_value: move |image: Option<Vec<u8>>| async move {
                         save_localization(Localization {
                             popup_cancel_new_base64: to_base64(image, true).await,
-                            ..localization_view()
+                            ..localization()
                         });
                     },
-                    value: localization_view().popup_cancel_new_base64,
+                    value: localization().popup_cancel_new_base64,
                 }
                 LocalizationTemplateInput {
                     label: "Cancel (old)",
@@ -238,10 +274,10 @@ fn SectionPopups(
                     on_value: move |image: Option<Vec<u8>>| async move {
                         save_localization(Localization {
                             popup_cancel_old_base64: to_base64(image, true).await,
-                            ..localization_view()
+                            ..localization()
                         });
                     },
-                    value: localization_view().popup_cancel_old_base64,
+                    value: localization().popup_cancel_old_base64,
                 }
             }
         }
@@ -249,10 +285,69 @@ fn SectionPopups(
 }
 
 #[component]
-fn SectionFamiliars(
-    localization_view: Memo<Localization>,
-    save_localization: EventHandler<Localization>,
-) -> Element {
+fn SectionHexa() -> Element {
+    let context = use_context::<LocalizationContext>();
+    let localization = context.localization;
+    let save_localization = context.save_localization;
+
+    rsx! {
+        Section { title: "HEXA",
+            div { class: "grid grid-cols-2 gap-4",
+                LocalizationTemplateInput {
+                    label: "Erda conversion button",
+                    template: GameTemplate::HexaErdaConversionButton,
+                    on_value: move |image: Option<Vec<u8>>| async move {
+                        save_localization(Localization {
+                            hexa_erda_conversion_button_base64: to_base64(image, false).await,
+                            ..localization()
+                        });
+                    },
+                    value: localization().hexa_erda_conversion_button_base64,
+                }
+                LocalizationTemplateInput {
+                    label: "HEXA Booster button",
+                    template: GameTemplate::HexaBoosterButton,
+                    on_value: move |image: Option<Vec<u8>>| async move {
+                        save_localization(Localization {
+                            hexa_booster_button_base64: to_base64(image, false).await,
+                            ..localization()
+                        });
+                    },
+                    value: localization().hexa_booster_button_base64,
+                }
+                LocalizationTemplateInput {
+                    label: "Max button",
+                    template: GameTemplate::HexaMaxButton,
+                    on_value: move |image: Option<Vec<u8>>| async move {
+                        save_localization(Localization {
+                            hexa_max_button_base64: to_base64(image, false).await,
+                            ..localization()
+                        });
+                    },
+                    value: localization().hexa_max_button_base64,
+                }
+                LocalizationTemplateInput {
+                    label: "Convert button",
+                    template: GameTemplate::HexaConvertButton,
+                    on_value: move |image: Option<Vec<u8>>| async move {
+                        save_localization(Localization {
+                            hexa_convert_button_base64: to_base64(image, false).await,
+                            ..localization()
+                        });
+                    },
+                    value: localization().hexa_convert_button_base64,
+                }
+            }
+        }
+    }
+}
+
+#[component]
+fn SectionFamiliars() -> Element {
+    let context = use_context::<LocalizationContext>();
+    let localization = context.localization;
+    let save_localization = context.save_localization;
+
     rsx! {
         Section { title: "Familiars",
             div { class: "grid grid-cols-2 gap-4",
@@ -262,10 +357,10 @@ fn SectionFamiliars(
                     on_value: move |image: Option<Vec<u8>>| async move {
                         save_localization(Localization {
                             familiar_level_button_base64: to_base64(image, false).await,
-                            ..localization_view()
+                            ..localization()
                         });
                     },
-                    value: localization_view().familiar_level_button_base64,
+                    value: localization().familiar_level_button_base64,
                 }
                 LocalizationTemplateInput {
                     label: "Save button",
@@ -273,10 +368,10 @@ fn SectionFamiliars(
                     on_value: move |image: Option<Vec<u8>>| async move {
                         save_localization(Localization {
                             familiar_save_button_base64: to_base64(image, false).await,
-                            ..localization_view()
+                            ..localization()
                         });
                     },
-                    value: localization_view().familiar_save_button_base64,
+                    value: localization().familiar_save_button_base64,
                 }
                 LocalizationTemplateInput {
                     label: "Setup button (unselected)",
@@ -284,10 +379,10 @@ fn SectionFamiliars(
                     on_value: move |image: Option<Vec<u8>>| async move {
                         save_localization(Localization {
                             familiar_setup_button_base64: to_base64(image, false).await,
-                            ..localization_view()
+                            ..localization()
                         });
                     },
-                    value: localization_view().familiar_setup_button_base64,
+                    value: localization().familiar_setup_button_base64,
                 }
             }
         }
@@ -295,10 +390,11 @@ fn SectionFamiliars(
 }
 
 #[component]
-fn SectionOthers(
-    localization_view: Memo<Localization>,
-    save_localization: EventHandler<Localization>,
-) -> Element {
+fn SectionOthers() -> Element {
+    let context = use_context::<LocalizationContext>();
+    let localization = context.localization;
+    let save_localization = context.save_localization;
+
     rsx! {
         Section { title: "Others",
             div { class: "grid grid-cols-2 gap-4",
@@ -308,10 +404,10 @@ fn SectionOthers(
                     on_value: move |image: Option<Vec<u8>>| async move {
                         save_localization(Localization {
                             cash_shop_base64: to_base64(image, true).await,
-                            ..localization_view()
+                            ..localization()
                         });
                     },
-                    value: localization_view().cash_shop_base64,
+                    value: localization().cash_shop_base64,
                 }
                 LocalizationTemplateInput {
                     label: "Change channel",
@@ -320,10 +416,10 @@ fn SectionOthers(
                     on_value: move |image: Option<Vec<u8>>| async move {
                         save_localization(Localization {
                             change_channel_base64: to_base64(image, true).await,
-                            ..localization_view()
+                            ..localization()
                         });
                     },
-                    value: localization_view().change_channel_base64,
+                    value: localization().change_channel_base64,
                 }
                 LocalizationTemplateInput {
                     label: "Timer",
@@ -332,10 +428,10 @@ fn SectionOthers(
                     on_value: move |image: Option<Vec<u8>>| async move {
                         save_localization(Localization {
                             timer_base64: to_base64(image, true).await,
-                            ..localization_view()
+                            ..localization()
                         });
                     },
-                    value: localization_view().timer_base64,
+                    value: localization().timer_base64,
                 }
             }
         }
@@ -347,37 +443,23 @@ fn LocalizationTemplateInput(
     label: &'static str,
     template: GameTemplate,
     #[props(default)] tooltip: Option<String>,
-    on_value: EventHandler<Option<Vec<u8>>>,
-    value: Option<String>,
+    on_value: Callback<Option<Vec<u8>>>,
+    value: ReadOnlySignal<Option<String>>,
 ) -> Element {
-    let id = use_memo(|| Alphanumeric.sample_string(&mut rand::rng(), 8));
-    let select_file = use_callback(move |_| {
-        let js = format!(
-            r#"
-            const element = document.getElementById("{}");
-            if (element === null) {{
-                return;
-            }}
-            element.click();
-            "#,
-            id()
-        );
-        document::eval(js.as_str());
-    });
     let read_file = use_callback(move |file: String| {
         on_value(fs::read(file).ok());
     });
     let mut base64 = use_signal(String::default);
 
-    use_effect(use_reactive!(|value| {
-        if let Some(value) = value {
+    use_effect(move || {
+        if let Some(value) = value() {
             base64.set(value);
         } else {
             spawn(async move {
                 base64.set(query_template(template).await);
             });
         }
-    }));
+    });
 
     rsx! {
         div { class: "flex gap-2",
@@ -403,30 +485,8 @@ fn LocalizationTemplateInput(
                 }
             }
             div { class: "flex items-end",
-                input {
-                    id: id(),
-                    class: "w-0 h-0 invisible",
-                    r#type: "file",
-                    accept: ".png",
-                    name: "Image",
-                    onchange: move |e| {
-                        if let Some(file) = e
-                            .data
-                            .files()
-                            .and_then(|engine| engine.files().into_iter().next())
-                        {
-                            read_file(file);
-                        }
-                    },
-                }
-                Button {
-                    class: "w-14",
-                    style: ButtonStyle::Primary,
-                    on_click: move |_| {
-                        select_file(());
-                    },
-
-                    "Replace"
+                FileInput { on_file: read_file,
+                    Button { class: "w-14", style: ButtonStyle::Primary, "Replace" }
                 }
             }
         }

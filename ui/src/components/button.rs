@@ -1,9 +1,7 @@
 use dioxus::prelude::*;
 use tw_merge::tw_merge;
 
-const DIV_CLASS: &str = "inline-block h-6";
-
-const CLASS: &str = "size-full text-xs text-center font-medium px-2 bg-secondary-surface enabled:hover:bg-tertiary-surface disabled:cursor-not-allowed disabled:text-tertiary-text";
+const CLASS: &str = "inline-block h-6 text-xs text-center font-medium content-center px-2 bg-secondary-surface data-[disabled=false]:hover:bg-tertiary-surface data-[disabled=false]:cursor-pointer data-[disabled=true]:cursor-not-allowed data-[disabled=true]:text-tertiary-text";
 
 #[derive(Copy, Clone, PartialEq)]
 pub enum ButtonStyle {
@@ -43,15 +41,14 @@ pub fn Button(props: ButtonProps) -> Element {
     };
 
     rsx! {
-        div { class: tw_merge!(DIV_CLASS, class),
-            button {
-                class: "{CLASS} {text_class} {border_class}",
-                disabled: props.disabled,
-                onclick: move |_| {
-                    props.on_click.call(());
-                },
-                {props.children}
-            }
+        div {
+            role: "button",
+            class: tw_merge!(CLASS, text_class, border_class, class),
+            "data-disabled": props.disabled,
+            onclick: move |_| {
+                props.on_click.call(());
+            },
+            {props.children}
         }
     }
 }

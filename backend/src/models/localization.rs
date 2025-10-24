@@ -2,7 +2,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::impl_identifiable;
 
-// TODO: Support localization for HEXA Booster exchange
 #[derive(Clone, PartialEq, Debug, Default, Serialize, Deserialize)]
 pub struct Localization {
     #[serde(skip_serializing, default)]
@@ -21,6 +20,10 @@ pub struct Localization {
     pub familiar_level_button_base64: Option<String>,
     pub familiar_save_button_base64: Option<String>,
     pub familiar_setup_button_base64: Option<String>,
+    pub hexa_convert_button_base64: Option<String>,
+    pub hexa_erda_conversion_button_base64: Option<String>,
+    pub hexa_booster_button_base64: Option<String>,
+    pub hexa_max_button_base64: Option<String>,
 }
 
 impl_identifiable!(Localization);

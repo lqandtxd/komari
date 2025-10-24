@@ -239,6 +239,10 @@ pub enum GameTemplate {
     FamiliarsLevelSort,
     FamiliarsSaveButton,
     FamiliarsSetupButton,
+    HexaErdaConversionButton,
+    HexaBoosterButton,
+    HexaMaxButton,
+    HexaConvertButton,
 }
 
 /// The four quads of a bound.

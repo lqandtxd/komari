@@ -67,6 +67,7 @@ static CONNECTION: LazyLock<Mutex<Connection>> = LazyLock::new(|| {
 static EVENT: LazyLock<Sender<DatabaseEvent>> = LazyLock::new(|| channel(5).0);
 
 #[derive(Debug, Clone)]
+#[allow(clippy::large_enum_variant)]
 pub enum DatabaseEvent {
     MinimapUpdated(Minimap),
     MinimapDeleted(i64),
