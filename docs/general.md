@@ -41,6 +41,13 @@
 - The created map is saved and can be selected later.
 - Any action presets created in the detected map are saved to that map only.
 
+Setup steps:
+1. Navigate to the map where you wish to train.  
+2. Wait for the bot to automatically detect the map.  
+3. If any issues occur, refer to the [troubleshooting guide](https://github.com/sasanquaa/komari/blob/master/docs/troubleshooting.md).  
+4. Click the `Create` button and assign a name (for example, use the same name as the map).  
+5. Repeat the above steps for each new map you wish to train in.  
+
 > **Note:**  
 > The arcs shown are for visualization purposes only. They do **not** represent the actual movement path. However, they indicate the sequence of actions, as shown by their numbering.
 
@@ -420,6 +427,21 @@ Introduced in **v0.20**.
 - `/action` – Performs a specified action (with kind and count).
 
 > The Discord bot is experimental and may change.
+
+---
+
+### Localization
+
+This feature helps replace certain detection resources that may differ across game regions.
+
+How to use:
+1. Open the `Localization` tab and refer to the table to find the function corresponding to each template.  
+2. Make sure the matching UI element is currently visible in your game.  
+3. Identify whether the template to replace is **color** or **grayscale**.  
+4. Click `Capture color` or `Capture grayscale`, depending on the template type.  
+5. Open the `datasets` folder (located in the same directory as the `.exe` file).  
+6. Crop the captured image to match the template, then click `Replace` button.  
+
 
 ## Video Guides
 
