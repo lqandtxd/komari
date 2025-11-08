@@ -50,7 +50,7 @@ runs:
         cd ui
         npm install
         cd ../
-        cargo binstall dioxus-cli --no-confirm
+        cargo binstall dioxus-cli@0.6.3 --no-confirm
 
     - name: Install protoc
       shell: pwsh
