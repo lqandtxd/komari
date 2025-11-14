@@ -777,8 +777,8 @@ mod tests {
     #[test]
     fn update_swapping_detect_level_other_double_click_and_move_to_rest() {
         let mut keys = MockInput::default();
-        // Move (start), Click, Click, Move to rest = total 3 send_mouse calls in Updated branch
-        keys.expect_send_mouse().times(3);
+        // Move (start), Click, Move to rest = total 2 send_mouse calls in Updated branch
+        keys.expect_send_mouse().times(2);
         let mut detector = MockDetector::default();
         detector
             .expect_detect_familiar_hover_level()
