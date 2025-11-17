@@ -23,7 +23,8 @@ pub const AUTO_MOB_USE_KEY_Y_THRESHOLD: i32 = 8;
 #[derive(Clone, Copy, Debug)]
 pub struct Key {
     pub key: KeyBinding,
-    pub link_key: Option<LinkKeyBinding>,
+    pub key_hold_ticks: u32,
+    pub link_key: LinkKeyBinding,
     pub count: u32,
     pub position: Option<Position>,
     pub direction: ActionKeyDirection,
@@ -38,6 +39,7 @@ impl From<ActionKey> for Key {
     fn from(
         ActionKey {
             key,
+            key_hold_millis,
             link_key,
             count,
             position,
@@ -51,6 +53,7 @@ impl From<ActionKey> for Key {
         }: ActionKey,
     ) -> Self {
         let count = count.max(1);
+        let key_hold_ticks = (key_hold_millis / MS_PER_TICK) as u32;
         let wait_before_use_ticks = (wait_before_use_millis / MS_PER_TICK) as u32;
         let wait_before_use_ticks_random_range =
             (wait_before_use_millis_random_range / MS_PER_TICK) as u32;
@@ -60,6 +63,7 @@ impl From<ActionKey> for Key {
 
         Self {
             key,
+            key_hold_ticks,
             link_key,
             count,
             position,
@@ -101,7 +105,8 @@ impl From<ActionMove> for Move {
 #[cfg_attr(test, derive(Default))]
 pub struct AutoMob {
     pub key: KeyBinding,
-    pub link_key: Option<LinkKeyBinding>,
+    pub key_hold_ticks: u32,
+    pub link_key: LinkKeyBinding,
     pub count: u32,
     pub with: ActionKeyWith,
     pub wait_before_ticks: u32,
@@ -129,7 +134,8 @@ impl fmt::Display for AutoMob {
 #[cfg_attr(test, derive(Default))]
 pub struct PingPong {
     pub key: KeyBinding,
-    pub link_key: Option<LinkKeyBinding>,
+    pub key_hold_ticks: u32,
+    pub link_key: LinkKeyBinding,
     pub count: u32,
     pub with: ActionKeyWith,
     pub wait_before_ticks: u32,

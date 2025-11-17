@@ -1145,6 +1145,7 @@ fn PopupMobbingKeyInputContent(
                     };
                     let key = MobbingKey {
                         key: action.key,
+                        key_hold_millis: action.key_hold_millis,
                         link_key: action.link_key,
                         count: action.count,
                         with: action.with,
@@ -1523,6 +1524,32 @@ fn ActionKeyInput(
                 },
                 value: action().count,
             }
+            ActionsMillisInput {
+                label: "Hold for",
+                on_value: move |millis| {
+                    let mut action = action.write();
+                    action.key_hold_millis = millis;
+                },
+                value: action().key_hold_millis,
+            }
+            ActionsKeyBindingInput {
+                label: "Link key",
+                disabled: matches!(action().link_key, LinkKeyBinding::None),
+                on_value: move |key: Option<KeyBinding>| {
+                    let mut action = action.write();
+                    action.link_key = action.link_key.with_key(key.expect("not optional"));
+                },
+                value: action().link_key.key().unwrap_or_default(),
+            }
+            ActionsSelect::<LinkKeyBinding> {
+                label: "Link key type",
+                disabled: false,
+                on_selected: move |link_key: LinkKeyBinding| {
+                    let mut action = action.write();
+                    action.link_key = link_key;
+                },
+                selected: action().link_key,
+            }
             if linkable {
                 ActionsCheckbox {
                     label: "Linked action",
@@ -1539,36 +1566,6 @@ fn ActionKeyInput(
                 }
             } else {
                 div {} // Spacer
-            }
-            ActionsKeyBindingInput {
-                label: "Link key",
-                disabled: action().link_key.is_none(),
-                on_value: move |key: Option<KeyBinding>| {
-                    let mut action = action.write();
-                    action.link_key = action
-                        .link_key
-                        .map(|link_key| link_key.with_key(key.expect("not optional")));
-                },
-                value: action().link_key.unwrap_or_default().key(),
-            }
-            ActionsSelect::<LinkKeyBinding> {
-                label: "Link key type",
-                disabled: action().link_key.is_none(),
-                on_selected: move |link_key: LinkKeyBinding| {
-                    let mut action = action.write();
-                    action.link_key = Some(
-                        link_key.with_key(action.link_key.expect("has link key if selectable").key()),
-                    );
-                },
-                selected: action().link_key.unwrap_or_default(),
-            }
-            ActionsCheckbox {
-                label: "Has link key",
-                on_checked: move |has_link_key: bool| {
-                    let mut action = action.write();
-                    action.link_key = has_link_key.then_some(LinkKeyBinding::default());
-                },
-                checked: action().link_key.is_some(),
             }
 
             // Use with, direction
@@ -1877,11 +1874,11 @@ fn ActionKeyItem(action: ActionKey) -> Element {
         "mt-2"
     };
     let link_key = match link_key {
-        Some(LinkKeyBinding::Before(key)) => format!("{key} ↝ "),
-        Some(LinkKeyBinding::After(key)) => format!("{key} ↜ "),
-        Some(LinkKeyBinding::AtTheSame(key)) => format!("{key} ↭ "),
-        Some(LinkKeyBinding::Along(key)) => format!("{key} ↷ "),
-        None => "".to_string(),
+        LinkKeyBinding::Before(key) => format!("{key} ↝ "),
+        LinkKeyBinding::After(key) => format!("{key} ↜ "),
+        LinkKeyBinding::AtTheSame(key) => format!("{key} ↭ "),
+        LinkKeyBinding::Along(key) => format!("{key} ↷ "),
+        LinkKeyBinding::None => "".to_string(),
     };
     let millis = if let ActionCondition::EveryMillis(millis) = condition {
         format!("⟳ {:.2}s / ", millis as f32 / 1000.0)

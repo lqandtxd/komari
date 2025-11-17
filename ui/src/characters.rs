@@ -1141,6 +1141,33 @@ fn ActionConfigurationInput(
                 },
                 value: action().count,
             }
+            CharactersMillisInput {
+                label: "Hold for",
+                on_value: move |millis| {
+                    let mut action = action.write();
+                    action.key_hold_millis = millis;
+                },
+                value: action().key_hold_millis,
+            }
+
+            CharactersKeyInput {
+                label: "Link key",
+                input_class: "border border-primary-border",
+                disabled: matches!(action().link_key, LinkKeyBinding::None),
+                on_value: move |key: Option<KeyBinding>| {
+                    let mut action = action.write();
+                    action.link_key = action.link_key.with_key(key.expect("not optional"));
+                },
+                value: action().link_key.key().unwrap_or_default(),
+            }
+            CharactersSelect::<LinkKeyBinding> {
+                label: "Link key type",
+                on_selected: move |link_key: LinkKeyBinding| {
+                    let mut action = action.write();
+                    action.link_key = link_key;
+                },
+                selected: action().link_key,
+            }
             if can_create_linked_action {
                 CharactersCheckbox {
                     label: "Linked action",
@@ -1156,37 +1183,6 @@ fn ActionConfigurationInput(
                 }
             } else {
                 div {} // Spacer
-            }
-            CharactersKeyInput {
-                label: "Link key",
-                input_class: "border border-primary-border",
-                disabled: action().link_key.is_none(),
-                on_value: move |key: Option<KeyBinding>| {
-                    let mut action = action.write();
-                    action.link_key = action
-                        .link_key
-                        .map(|link_key| link_key.with_key(key.expect("not optional")));
-                },
-                value: action().link_key.unwrap_or_default().key(),
-            }
-            CharactersSelect::<LinkKeyBinding> {
-                label: "Link key type",
-                disabled: action().link_key.is_none(),
-                on_selected: move |link_key: LinkKeyBinding| {
-                    let mut action = action.write();
-                    action.link_key = Some(
-                        link_key.with_key(action.link_key.expect("has link key if selectable").key()),
-                    );
-                },
-                selected: action().link_key.unwrap_or_default(),
-            }
-            CharactersCheckbox {
-                label: "Has link key",
-                checked: action().link_key.is_some(),
-                on_checked: move |has_link_key: bool| {
-                    let mut action = action.write();
-                    action.link_key = has_link_key.then_some(LinkKeyBinding::default());
-                },
             }
 
             // Use with
@@ -1437,11 +1433,11 @@ fn ActionConfigurationItem(action: ActionConfiguration) -> Element {
         "mt-2"
     };
     let link_key = match link_key {
-        Some(LinkKeyBinding::Before(key)) => format!("{key} ↝ "),
-        Some(LinkKeyBinding::After(key)) => format!("{key} ↜ "),
-        Some(LinkKeyBinding::AtTheSame(key)) => format!("{key} ↭ "),
-        Some(LinkKeyBinding::Along(key)) => format!("{key} ↷ "),
-        None => "".to_string(),
+        LinkKeyBinding::Before(key) => format!("{key} ↝ "),
+        LinkKeyBinding::After(key) => format!("{key} ↜ "),
+        LinkKeyBinding::AtTheSame(key) => format!("{key} ↭ "),
+        LinkKeyBinding::Along(key) => format!("{key} ↷ "),
+        LinkKeyBinding::None => "".to_string(),
     };
     let millis = if let ActionConfigurationCondition::EveryMillis(millis) = condition {
         format!("⟳ {:.2}s / ", millis as f32 / 1000.0)

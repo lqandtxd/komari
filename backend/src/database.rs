@@ -322,7 +322,9 @@ impl Default for ActionConfigurationCondition {
 #[derive(Clone, Copy, PartialEq, Debug, Serialize, Deserialize)]
 pub struct ActionConfiguration {
     pub key: KeyBinding,
-    pub link_key: Option<LinkKeyBinding>,
+    #[serde(default)]
+    pub key_hold_millis: u64,
+    pub link_key: LinkKeyBinding,
     pub count: u32,
     pub condition: ActionConfigurationCondition,
     pub with: ActionKeyWith,
@@ -338,7 +340,8 @@ impl Default for ActionConfiguration {
         // Template for a buff
         Self {
             key: KeyBinding::default(),
-            link_key: None,
+            key_hold_millis: 0,
+            link_key: LinkKeyBinding::None,
             count: key_count_default(),
             condition: ActionConfigurationCondition::default(),
             with: ActionKeyWith::Stationary,
@@ -355,6 +358,7 @@ impl From<ActionConfiguration> for Action {
     fn from(value: ActionConfiguration) -> Self {
         Self::Key(ActionKey {
             key: value.key,
+            key_hold_millis: value.key_hold_millis,
             link_key: value.link_key,
             count: value.count,
             position: None,
@@ -404,7 +408,9 @@ impl From<Rect> for Bound {
 #[derive(Clone, Copy, PartialEq, Debug, Serialize, Deserialize)]
 pub struct MobbingKey {
     pub key: KeyBinding,
-    pub link_key: Option<LinkKeyBinding>,
+    #[serde(default)]
+    pub key_hold_millis: u64,
+    pub link_key: LinkKeyBinding,
     #[serde(default = "key_count_default")]
     pub count: u32,
     pub with: ActionKeyWith,
@@ -418,7 +424,8 @@ impl Default for MobbingKey {
     fn default() -> Self {
         Self {
             key: KeyBinding::default(),
-            link_key: None,
+            key_hold_millis: 0,
+            link_key: LinkKeyBinding::None,
             count: key_count_default(),
             with: ActionKeyWith::default(),
             wait_before_millis: 0,
@@ -559,7 +566,9 @@ pub struct ActionMove {
 #[derive(Clone, Copy, PartialEq, Debug, Serialize, Deserialize)]
 pub struct ActionKey {
     pub key: KeyBinding,
-    pub link_key: Option<LinkKeyBinding>,
+    #[serde(default)]
+    pub key_hold_millis: u64,
+    pub link_key: LinkKeyBinding,
     #[serde(default = "count_default")]
     pub count: u32,
     pub position: Option<Position>,
@@ -577,7 +586,8 @@ impl Default for ActionKey {
     fn default() -> Self {
         Self {
             key: KeyBinding::default(),
-            link_key: None,
+            key_hold_millis: 0,
+            link_key: LinkKeyBinding::None,
             count: count_default(),
             position: None,
             condition: ActionCondition::default(),
@@ -594,6 +604,7 @@ impl Default for ActionKey {
 
 #[derive(Clone, Copy, Display, EnumString, EnumIter, PartialEq, Debug, Serialize, Deserialize)]
 pub enum LinkKeyBinding {
+    None,
     Before(KeyBinding),
     AtTheSame(KeyBinding),
     After(KeyBinding),
@@ -601,12 +612,13 @@ pub enum LinkKeyBinding {
 }
 
 impl LinkKeyBinding {
-    pub fn key(&self) -> KeyBinding {
+    pub fn key(&self) -> Option<KeyBinding> {
         match self {
             LinkKeyBinding::Before(key)
             | LinkKeyBinding::AtTheSame(key)
             | LinkKeyBinding::After(key)
-            | LinkKeyBinding::Along(key) => *key,
+            | LinkKeyBinding::Along(key) => Some(*key),
+            LinkKeyBinding::None => None,
         }
     }
 
@@ -616,6 +628,7 @@ impl LinkKeyBinding {
             LinkKeyBinding::AtTheSame(_) => LinkKeyBinding::AtTheSame(key),
             LinkKeyBinding::After(_) => LinkKeyBinding::After(key),
             LinkKeyBinding::Along(_) => LinkKeyBinding::Along(key),
+            LinkKeyBinding::None => LinkKeyBinding::None,
         }
     }
 }

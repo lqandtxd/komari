@@ -46,6 +46,9 @@ pub fn Button(props: ButtonProps) -> Element {
             class: tw_merge!(CLASS, text_class, border_class, class),
             "data-disabled": props.disabled,
             onclick: move |_| {
+                if *props.disabled.peek() {
+                    return;
+                }
                 props.on_click.call(());
             },
             {props.children}

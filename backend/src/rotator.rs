@@ -18,7 +18,7 @@ use ordered_hash_map::OrderedHashMap;
 
 use crate::{
     ActionKeyDirection, ActionKeyWith, Bound, ExchangeHexaBoosterCondition, FamiliarRarity,
-    KeyBinding, MobbingKey, Position, SwappableFamiliars,
+    KeyBinding, LinkKeyBinding, MobbingKey, Position, SwappableFamiliars,
     array::Array,
     buff::{Buff, BuffKind},
     database::{Action, ActionCondition, ActionKey, ActionMove, EliteBossBehavior},
@@ -628,6 +628,7 @@ impl DefaultRotator {
                     player_context.auto_mob_pathing_point(resources, minimap_state, bound)
                 })
         };
+        let key_hold_ticks = (key.key_hold_millis / MS_PER_TICK) as u32;
         let wait_before_ticks = (key.wait_before_millis / MS_PER_TICK) as u32;
         let wait_before_ticks_random_range =
             (key.wait_before_millis_random_range / MS_PER_TICK) as u32;
@@ -645,6 +646,7 @@ impl DefaultRotator {
             None,
             PlayerAction::AutoMob(AutoMob {
                 key: key.key,
+                key_hold_ticks,
                 link_key: key.link_key,
                 count: key.count.max(1),
                 with: key.with,
@@ -695,6 +697,7 @@ impl DefaultRotator {
             None,
             PlayerAction::PingPong(PingPong {
                 key: key.key,
+                key_hold_ticks: (key.key_hold_millis / MS_PER_TICK) as u32,
                 link_key: key.link_key,
                 count: key.count.max(1),
                 with: key.with,
@@ -1126,7 +1129,8 @@ fn familiar_essence_replenish_priority_action(key: KeyBinding) -> PriorityAction
         metadata: None,
         inner: RotatorAction::Single(PlayerAction::Key(Key {
             key,
-            link_key: None,
+            key_hold_ticks: 0,
+            link_key: LinkKeyBinding::None,
             count: 1,
             position: None,
             direction: ActionKeyDirection::Any,
@@ -1242,7 +1246,8 @@ fn buff_priority_action(buff: BuffKind, key: KeyBinding) -> PriorityAction {
         condition_kind: None,
         inner: RotatorAction::Single(PlayerAction::Key(Key {
             key,
-            link_key: None,
+            key_hold_ticks: 0,
+            link_key: LinkKeyBinding::None,
             count: 1,
             position: None,
             direction: ActionKeyDirection::Any,
@@ -1330,7 +1335,8 @@ fn elite_boss_use_key_priority_action(key: KeyBinding) -> PriorityAction {
         condition_kind: None,
         inner: RotatorAction::Single(PlayerAction::Key(Key {
             key,
-            link_key: None,
+            key_hold_ticks: 0,
+            link_key: LinkKeyBinding::None,
             count: 1,
             position: None,
             direction: ActionKeyDirection::Any,

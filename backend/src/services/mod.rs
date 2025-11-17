@@ -334,7 +334,8 @@ impl DefaultRequestHandler<'_> {
                     let player_action = match action {
                         BotAction::Jump => PlayerAction::Key(Key {
                             key: self.world.player.context.config.jump_key.into(),
-                            link_key: None,
+                            key_hold_ticks: 0,
+                            link_key: LinkKeyBinding::None,
                             count,
                             position: None,
                             direction: ActionKeyDirection::Any, // Must always be Any
@@ -347,9 +348,10 @@ impl DefaultRequestHandler<'_> {
                         BotAction::DoubleJump => {
                             PlayerAction::Key(Key {
                                 key: self.world.player.context.config.jump_key.into(),
-                                link_key: Some(LinkKeyBinding::Before(
+                                key_hold_ticks: 0,
+                                link_key: LinkKeyBinding::Before(
                                     self.world.player.context.config.jump_key.into(),
-                                )),
+                                ),
                                 count,
                                 position: None,
                                 direction: ActionKeyDirection::Any, // Must always be Any
@@ -363,7 +365,8 @@ impl DefaultRequestHandler<'_> {
                         BotAction::Crouch => {
                             PlayerAction::Key(Key {
                                 key: KeyBinding::Down,
-                                link_key: Some(LinkKeyBinding::Along(KeyBinding::Down)),
+                                key_hold_ticks: 0,
+                                link_key: LinkKeyBinding::Along(KeyBinding::Down),
                                 count,
                                 position: None,
                                 direction: ActionKeyDirection::Any, // Must always be Any

@@ -19,7 +19,7 @@ use opencv::{
 use tokio::sync::broadcast::Receiver;
 
 use crate::{
-    ActionKeyDirection, ActionKeyWith, KeyBinding, NavigationPaths, Position,
+    ActionKeyDirection, ActionKeyWith, KeyBinding, LinkKeyBinding, NavigationPaths, Position,
     database::{NavigationPath, NavigationTransition, query_navigation_paths},
     detect::Detector,
     ecs::{Resources, WorldEvent},
@@ -414,7 +414,8 @@ impl Navigator for DefaultNavigator {
                             };
                             let key = Key {
                                 key: KeyBinding::Up,
-                                link_key: None,
+                                key_hold_ticks: 0,
+                                link_key: LinkKeyBinding::None,
                                 count: 1,
                                 position: Some(position),
                                 direction: ActionKeyDirection::Any,
