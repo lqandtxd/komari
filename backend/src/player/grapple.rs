@@ -96,7 +96,7 @@ pub fn update_grappling_state(
             if !moving.completed
                 && (y_direction <= 0 || y_distance <= stopping_threshold(player.context.velocity.1))
             {
-                resources.input.send_key(player.context.config.jump_key);
+                resources.input.send_key(key);
                 moving.completed = true;
             }
             // Sets initial next state first
@@ -220,7 +220,7 @@ mod tests {
         player.state = Player::Grappling(Grappling::new(moving));
 
         let mut keys = MockInput::new();
-        keys.expect_send_key().once().with(eq(KeyKind::Space));
+        keys.expect_send_key().once().with(eq(KeyKind::F));
         let resources = Resources::new(Some(keys), None);
 
         update_grappling_state(&resources, &mut player, Minimap::Detecting);
