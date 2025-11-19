@@ -1622,7 +1622,7 @@ fn ActionKeyInput(
 
             // Wait before use
             ActionsMillisInput {
-                label: "Wait before",
+                label: "Wait before use",
                 on_value: move |millis| {
                     let mut action = action.write();
                     action.wait_before_use_millis = millis;
@@ -1641,7 +1641,7 @@ fn ActionKeyInput(
 
             // Wait after use
             ActionsMillisInput {
-                label: "Wait after",
+                label: "Wait after use",
                 on_value: move |millis| {
                     let mut action = action.write();
                     action.wait_after_use_millis = millis;
@@ -1655,6 +1655,15 @@ fn ActionKeyInput(
                     action.wait_after_use_millis_random_range = millis;
                 },
                 value: action().wait_after_use_millis_random_range,
+            }
+            ActionsCheckbox {
+                label: "Wait after buffered",
+                tooltip: "After the last key use, instead of waiting inplace, the bot is allowed to execute the next action partially. This can be useful for movable skill with casting animation.",
+                on_checked: move |wait_after_buffered: bool| {
+                    let mut action = action.write();
+                    action.wait_after_buffered = wait_after_buffered;
+                },
+                checked: action().wait_after_buffered,
             }
         }
         div { class: "flex w-full gap-3 absolute bottom-0 py-2 bg-secondary-surface",

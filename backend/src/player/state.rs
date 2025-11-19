@@ -323,6 +323,10 @@ pub struct PlayerContext {
     ///
     /// Resets when [`Player::Stalling`] timed out or in [`Player::Idle`].
     pub(super) stalling_timeout_state: Option<Player>,
+    /// [`Timeout`] substitutes for [`Player::Stalling`].
+    ///
+    /// This allows other action to execute while the previous action is still stalling.
+    pub(super) stalling_timeout_buffered: Option<(Timeout, u32)>,
 
     /// Stores a list of [`(Point, u64)`] pair samples for approximating velocity.
     velocity_samples: Array<(Point, u64), VELOCITY_SAMPLES>,
@@ -491,6 +495,8 @@ impl PlayerContext {
 
     /// Clears both on-going normal and priority actions due to being aborted and whether to reset
     /// the player to [`Player::Idle`].
+    ///
+    /// This is meant to be used for external callers.
     #[inline]
     pub fn clear_actions_aborted(&mut self, should_idle: bool) {
         self.reset_to_idle_next_update = should_idle;
@@ -1165,6 +1171,7 @@ impl PlayerContext {
                 buffs,
             );
             self.update_is_dead_state(resources);
+            self.update_stalling_buffer_state();
             true
         } else {
             false
@@ -1381,6 +1388,17 @@ impl PlayerContext {
             }
         }
         self.is_dead = is_dead;
+    }
+
+    fn update_stalling_buffer_state(&mut self) {
+        if let Some((timeout, max_timeout)) = self.stalling_timeout_buffered {
+            self.stalling_timeout_buffered = match next_timeout_lifecycle(timeout, max_timeout) {
+                Lifecycle::Updated(timeout) | Lifecycle::Started(timeout) => {
+                    Some((timeout, max_timeout))
+                }
+                Lifecycle::Ended => None,
+            }
+        }
     }
 }
 

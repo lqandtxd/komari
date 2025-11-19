@@ -333,6 +333,8 @@ pub struct ActionConfiguration {
     pub wait_before_millis_random_range: u64,
     pub wait_after_millis: u64,
     pub wait_after_millis_random_range: u64,
+    #[serde(default)]
+    pub wait_after_buffered: bool,
     pub enabled: bool,
 }
 
@@ -350,6 +352,7 @@ impl Default for ActionConfiguration {
             wait_before_millis_random_range: 0,
             wait_after_millis: 500,
             wait_after_millis_random_range: 0,
+            wait_after_buffered: false,
             enabled: false,
         }
     }
@@ -376,6 +379,7 @@ impl From<ActionConfiguration> for Action {
             wait_before_use_millis_random_range: value.wait_before_millis_random_range,
             wait_after_use_millis: value.wait_after_millis,
             wait_after_use_millis_random_range: value.wait_after_millis_random_range,
+            wait_after_buffered: value.wait_after_buffered,
         })
     }
 }
@@ -582,6 +586,8 @@ pub struct ActionKey {
     pub wait_before_use_millis_random_range: u64,
     pub wait_after_use_millis: u64,
     pub wait_after_use_millis_random_range: u64,
+    #[serde(default)]
+    pub wait_after_buffered: bool,
     pub queue_to_front: Option<bool>,
 }
 
@@ -600,6 +606,7 @@ impl Default for ActionKey {
             wait_before_use_millis_random_range: 0,
             wait_after_use_millis: 0,
             wait_after_use_millis_random_range: 0,
+            wait_after_buffered: false,
             queue_to_front: None,
         }
     }

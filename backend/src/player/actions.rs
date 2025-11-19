@@ -33,6 +33,7 @@ pub struct Key {
     pub wait_before_use_ticks_random_range: u32,
     pub wait_after_use_ticks: u32,
     pub wait_after_use_ticks_random_range: u32,
+    pub wait_after_buffered: bool,
 }
 
 impl From<ActionKey> for Key {
@@ -49,6 +50,7 @@ impl From<ActionKey> for Key {
             wait_before_use_millis_random_range,
             wait_after_use_millis,
             wait_after_use_millis_random_range,
+            wait_after_buffered,
             ..
         }: ActionKey,
     ) -> Self {
@@ -73,6 +75,7 @@ impl From<ActionKey> for Key {
             wait_before_use_ticks_random_range,
             wait_after_use_ticks,
             wait_after_use_ticks_random_range,
+            wait_after_buffered,
         }
     }
 }
@@ -370,13 +373,22 @@ pub(super) fn update_from_auto_mob_action(
     x_direction: i32,
     y_distance: i32,
 ) {
+    let should_terminate =
+        x_distance <= AUTO_MOB_USE_KEY_X_THRESHOLD && y_distance <= AUTO_MOB_USE_KEY_Y_THRESHOLD;
+    transition_if!(
+        player,
+        Player::Idle,
+        should_terminate && player.context.stalling_timeout_buffered.is_some(),
+        {
+            player.context.clear_action_completed();
+        }
+    );
+
     let direction = match x_direction {
         direction if direction > 0 => ActionKeyDirection::Right,
         direction if direction < 0 => ActionKeyDirection::Left,
         _ => ActionKeyDirection::Any,
     };
-    let should_terminate =
-        x_distance <= AUTO_MOB_USE_KEY_X_THRESHOLD && y_distance <= AUTO_MOB_USE_KEY_Y_THRESHOLD;
     let should_check_pathing = matches!(
         player.state,
         Player::DoubleJumping(_) | Player::Adjusting(_)

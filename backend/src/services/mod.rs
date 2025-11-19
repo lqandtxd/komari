@@ -344,6 +344,7 @@ impl DefaultRequestHandler<'_> {
                             wait_before_use_ticks_random_range: 5,
                             wait_after_use_ticks: 15,
                             wait_after_use_ticks_random_range: 0,
+                            wait_after_buffered: false,
                         }),
                         BotAction::DoubleJump => {
                             PlayerAction::Key(Key {
@@ -360,13 +361,14 @@ impl DefaultRequestHandler<'_> {
                                 wait_before_use_ticks_random_range: 0,
                                 wait_after_use_ticks: 0,
                                 wait_after_use_ticks_random_range: 55,
+                                wait_after_buffered: false,
                             })
                         }
                         BotAction::Crouch => {
                             PlayerAction::Key(Key {
                                 key: KeyBinding::Down,
-                                key_hold_ticks: 0,
-                                link_key: LinkKeyBinding::Along(KeyBinding::Down),
+                                key_hold_ticks: 4,
+                                link_key: LinkKeyBinding::None,
                                 count,
                                 position: None,
                                 direction: ActionKeyDirection::Any, // Must always be Any
@@ -375,6 +377,7 @@ impl DefaultRequestHandler<'_> {
                                 wait_before_use_ticks_random_range: 0,
                                 wait_after_use_ticks: 10,
                                 wait_after_use_ticks_random_range: 0,
+                                wait_after_buffered: false,
                             })
                         }
                     };

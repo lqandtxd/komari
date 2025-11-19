@@ -424,6 +424,7 @@ impl Navigator for DefaultNavigator {
                                 wait_before_use_ticks_random_range: 0,
                                 wait_after_use_ticks: 0,
                                 wait_after_use_ticks_random_range: 0,
+                                wait_after_buffered: false,
                             };
                             player_context.set_priority_action(None, PlayerAction::Key(key));
                         }

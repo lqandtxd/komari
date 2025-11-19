@@ -1209,7 +1209,7 @@ fn ActionConfigurationInput(
 
             // Wait before use
             CharactersMillisInput {
-                label: "Wait before",
+                label: "Wait before use",
                 on_value: move |millis| {
                     let mut action = action.write();
                     action.wait_before_millis = millis;
@@ -1228,7 +1228,7 @@ fn ActionConfigurationInput(
 
             // Wait after use
             CharactersMillisInput {
-                label: "Wait after",
+                label: "Wait after use",
                 on_value: move |millis| {
                     let mut action = action.write();
                     action.wait_after_millis = millis;
@@ -1242,6 +1242,16 @@ fn ActionConfigurationInput(
                     action.wait_after_millis_random_range = millis;
                 },
                 value: action().wait_after_millis_random_range,
+            }
+            CharactersCheckbox {
+                label: "Wait after buffered",
+                tooltip: "After the last key use, instead of waiting inplace, the bot is allowed to execute the next action partially. This can be useful for movable skill with casting animation.",
+                tooltip_align: ContentAlign::End,
+                on_checked: move |wait_after_buffered: bool| {
+                    let mut action = action.write();
+                    action.wait_after_buffered = wait_after_buffered;
+                },
+                checked: action().wait_after_buffered,
             }
         }
         div { class: "flex w-full gap-3 absolute bottom-0 py-2 bg-secondary-surface",
@@ -1551,10 +1561,11 @@ fn CharactersCheckbox(
     checked: bool,
     on_checked: Callback<bool>,
     #[props(default)] tooltip: Option<String>,
+    #[props(default = ContentAlign::Center)] tooltip_align: ContentAlign,
     #[props(default)] disabled: ReadSignal<bool>,
 ) -> Element {
     rsx! {
-        Labeled { label, tooltip, tooltip_align: ContentAlign::Center,
+        Labeled { label, tooltip, tooltip_align,
             Checkbox { checked, on_checked, disabled }
         }
     }

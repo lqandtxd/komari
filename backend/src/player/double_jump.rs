@@ -367,6 +367,12 @@ fn update_from_ping_pong_action(
         transition_from_action!(player, Player::Idle);
     }
     transition_if!(!double_jumped);
+    // TODO: Add test
+    transition_if!(
+        player,
+        Player::Idle,
+        player.context.stalling_timeout_buffered.is_some()
+    );
 
     resources.input.send_key_up(KeyKind::Left);
     resources.input.send_key_up(KeyKind::Right);

@@ -79,6 +79,12 @@ pub fn update_grappling_state(
         ChangeAxis::Both,
     ) {
         MovingLifecycle::Started(moving) => {
+            transition_if!(
+                player,
+                Player::Grappling(grappling.moving(moving.timeout_started(false))),
+                player.context.stalling_timeout_buffered.is_some()
+            );
+
             transition!(player, Player::Grappling(grappling.moving(moving)), {
                 player.context.last_movement = Some(LastMovement::Grappling);
                 resources.input.send_key(key);
