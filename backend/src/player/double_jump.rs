@@ -32,7 +32,7 @@ use crate::{
 pub const DOUBLE_JUMP_THRESHOLD: i32 = 25;
 
 /// Minimum x distance from the destination required to perform a double jump in auto mobbing.
-pub const DOUBLE_JUMP_AUTO_MOB_THRESHOLD: i32 = 17;
+pub const DOUBLE_JUMP_AUTO_MOB_THRESHOLD: i32 = 15;
 
 /// Minimum x distance from the destination required to transition to [`Player::UseKey`].
 const USE_KEY_X_THRESHOLD: i32 = DOUBLE_JUMP_THRESHOLD;
@@ -43,7 +43,7 @@ const USE_KEY_Y_THRESHOLD: i32 = 10;
 /// Maximum number of ticks before timing out.
 const TIMEOUT: u32 = MOVE_TIMEOUT;
 
-const TIMEOUT_FORCED: u32 = MOVE_TIMEOUT + 3;
+const TIMEOUT_FORCED: u32 = 20;
 
 /// Number of ticks to wait after a double jump.
 ///
