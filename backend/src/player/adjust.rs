@@ -31,9 +31,6 @@ pub const ADJUSTING_MEDIUM_THRESHOLD: i32 = 3;
 
 const ADJUSTING_SHORT_TIMEOUT: u32 = MOVE_TIMEOUT + 3;
 
-/// Minimium y distance required to perform a fall and then walk.
-const FALLING_THRESHOLD: i32 = 8;
-
 #[derive(Clone, Copy, Debug)]
 pub struct Adjusting {
     pub moving: Moving,
@@ -88,25 +85,6 @@ pub fn update_adjusting_state(
 
     match next_moving_lifecycle_with_axis(moving, cur_pos, MOVE_TIMEOUT, ChangeAxis::Both) {
         MovingLifecycle::Started(moving) => {
-            // Check to perform a fall and returns to walk
-            let (x_distance, _) = moving.x_distance_direction_from(true, moving.pos);
-            let (y_distance, y_direction) = moving.y_distance_direction_from(true, moving.pos);
-            transition_if!(
-                player,
-                Player::Falling {
-                    moving: moving.timeout_started(false),
-                    anchor: moving.pos,
-                    timeout_on_complete: true,
-                },
-                !is_intermediate
-                    && context.config.teleport_key.is_none()
-                    && context.last_movement != Some(LastMovement::Falling)
-                    && context.is_stationary
-                    && x_distance >= ADJUSTING_MEDIUM_THRESHOLD
-                    && y_direction < 0
-                    && y_distance >= FALLING_THRESHOLD
-            );
-
             context.last_movement = Some(LastMovement::Adjusting);
             transition!(player, Player::Adjusting(adjusting.moving(moving)))
         }
@@ -272,29 +250,6 @@ mod tests {
             state: Player::Idle,
             context,
         }
-    }
-
-    #[test]
-    fn update_adjusting_state_started_falling() {
-        let pos = Point { x: 0, y: 10 };
-        let dest = Point { x: 10, y: 0 };
-        let mut player = mock_player_entity(pos);
-        player.context.is_stationary = true;
-        player.state = Player::Adjusting(Adjusting::new(Moving::new(pos, dest, false, None)));
-
-        let resources = Resources::new(None, None);
-
-        update_adjusting_state(&resources, &mut player, Minimap::Detecting);
-
-        assert_matches!(
-            player.state,
-            Player::Falling {
-                moving: _,
-                anchor: Point { x: 0, y: 10 },
-                timeout_on_complete: true
-            }
-        );
-        assert!(player.context.last_movement.is_none());
     }
 
     #[test]

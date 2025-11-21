@@ -32,7 +32,7 @@ use crate::{
 pub const DOUBLE_JUMP_THRESHOLD: i32 = 25;
 
 /// Minimum x distance from the destination required to perform a double jump in auto mobbing.
-pub const DOUBLE_JUMP_AUTO_MOB_THRESHOLD: i32 = 15;
+pub const DOUBLE_JUMP_AUTO_MOB_THRESHOLD: i32 = 17;
 
 /// Minimum x distance from the destination required to transition to [`Player::UseKey`].
 const USE_KEY_X_THRESHOLD: i32 = DOUBLE_JUMP_THRESHOLD;
@@ -62,9 +62,6 @@ const X_NEAR_STATIONARY_VELOCITY_THRESHOLD: f32 = 0.75;
 
 /// Maximum y velocity allowed to be considered as near stationary.
 const Y_NEAR_STATIONARY_VELOCITY_THRESHOLD: f32 = 0.4;
-
-/// Minimium y distance required to perform a fall and then double jump.
-const FALLING_THRESHOLD: i32 = 8;
 
 /// Minimum y distance required from the middle y of ping pong bound to allow randomization.
 const PING_PONG_IGNORE_RANDOMIZE_Y_THRESHOLD: i32 = 9;
@@ -153,24 +150,6 @@ pub fn update_double_jumping_state(
         axis,
     ) {
         MovingLifecycle::Started(moving) => {
-            // Check to perform a fall and returns to double jump
-            let (y_distance, y_direction) = moving.y_distance_direction_from(true, moving.pos);
-            transition_if!(
-                player,
-                Player::Falling {
-                    moving: moving.timeout_started(false),
-                    anchor: moving.pos,
-                    timeout_on_complete: true,
-                },
-                !is_intermediate
-                    && !double_jumping.forced
-                    && player.context.config.teleport_key.is_none()
-                    && player.context.last_movement != Some(LastMovement::Falling)
-                    && player.context.is_stationary
-                    && y_direction < 0
-                    && y_distance >= FALLING_THRESHOLD
-            );
-
             // Stall until near stationary by resetting started
             let (x_velocity, y_velocity) = player.context.velocity;
             transition_if!(
@@ -486,30 +465,6 @@ mod tests {
         assert_eq!(
             player.context.last_movement,
             Some(LastMovement::DoubleJumping)
-        );
-    }
-
-    #[test]
-    fn update_double_jumping_state_started_transitions_to_falling_if_above_and_close() {
-        let pos = Point::new(0, 10);
-        let dest = Point::new(0, 0);
-        let mut player = make_player_with_state(Player::DoubleJumping(DoubleJumping::new(
-            Moving::new(pos, dest, false, None),
-            false,
-            false,
-        )));
-        player.context.is_stationary = true;
-        player.context.last_known_pos = Some(pos);
-        let resources = Resources::new(None, None);
-
-        update_double_jumping_state(&resources, &mut player, Minimap::Detecting);
-
-        assert_matches!(
-            player.state,
-            Player::Falling {
-                timeout_on_complete: true,
-                ..
-            }
         );
     }
 
