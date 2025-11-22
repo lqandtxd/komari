@@ -24,6 +24,7 @@ pub const AUTO_MOB_USE_KEY_Y_THRESHOLD: i32 = 8;
 pub struct Key {
     pub key: KeyBinding,
     pub key_hold_ticks: u32,
+    pub key_hold_buffered_to_wait_after: bool,
     pub link_key: LinkKeyBinding,
     pub count: u32,
     pub position: Option<Position>,
@@ -41,6 +42,7 @@ impl From<ActionKey> for Key {
         ActionKey {
             key,
             key_hold_millis,
+            key_hold_buffered_to_wait_after,
             link_key,
             count,
             position,
@@ -66,6 +68,7 @@ impl From<ActionKey> for Key {
         Self {
             key,
             key_hold_ticks,
+            key_hold_buffered_to_wait_after,
             link_key,
             count,
             position,

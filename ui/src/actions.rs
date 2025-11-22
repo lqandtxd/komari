@@ -1516,22 +1516,36 @@ fn ActionKeyInput(
                 },
                 value: Some(action().key),
             }
-            ActionsNumberInputU32 {
-                label: "Use count",
-                on_value: move |count| {
-                    let mut action = action.write();
-                    action.count = count;
-                },
-                value: action().count,
+            div { class: "grid grid-cols-2 gap-3",
+                ActionsNumberInputU32 {
+                    label: "Use count",
+                    on_value: move |count| {
+                        let mut action = action.write();
+                        action.count = count;
+                    },
+                    value: action().count,
+                }
+                ActionsMillisInput {
+                    label: "Hold for",
+                    on_value: move |millis| {
+                        let mut action = action.write();
+                        action.key_hold_millis = millis;
+                    },
+                    value: action().key_hold_millis,
+                }
             }
-            ActionsMillisInput {
-                label: "Hold for",
-                on_value: move |millis| {
+            ActionsCheckbox {
+                label: "Holding buffered",
+                tooltip: "Require [Wait after buffered] to be enabled and without [Link key]. When enabled, the holding time will be added to [Wait after] during the last key use. Useful for holding down key and moving simultaneously.",
+                tooltip_side: ContentSide::Bottom,
+                on_checked: move |checked| {
                     let mut action = action.write();
-                    action.key_hold_millis = millis;
+                    action.key_hold_buffered_to_wait_after = checked;
                 },
-                value: action().key_hold_millis,
+                checked: action().key_hold_buffered_to_wait_after,
             }
+
+
             ActionsKeyBindingInput {
                 label: "Link key",
                 disabled: matches!(action().link_key, LinkKeyBinding::None),
@@ -2030,6 +2044,8 @@ fn ActionsMillisInput(
 fn ActionsCheckbox(
     label: &'static str,
     #[props(default)] tooltip: Option<String>,
+    #[props(default = ContentSide::Left)] tooltip_side: ContentSide,
+    #[props(default = ContentAlign::End)] tooltip_align: ContentAlign,
     #[props(default)] disabled: bool,
     on_checked: Callback<bool>,
     checked: bool,
@@ -2038,8 +2054,8 @@ fn ActionsCheckbox(
         Labeled {
             label,
             tooltip,
-            tooltip_side: ContentSide::Left,
-            tooltip_align: ContentAlign::End,
+            tooltip_side,
+            tooltip_align,
             Checkbox { disabled, on_checked, checked }
         }
     }

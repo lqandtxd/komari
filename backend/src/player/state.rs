@@ -107,6 +107,24 @@ pub enum LastMovement {
     Jumping,
 }
 
+pub(super) struct BufferedStallingCallback {
+    inner: Box<dyn Fn(&Resources) + 'static>,
+}
+
+impl BufferedStallingCallback {
+    pub fn new(callback: impl Fn(&Resources) + 'static) -> Self {
+        Self {
+            inner: Box::new(callback),
+        }
+    }
+}
+
+impl std::fmt::Debug for BufferedStallingCallback {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "dyn FnOnce(...)")
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
 pub struct PlayerConfiguration {
     /// The player class.
@@ -327,6 +345,8 @@ pub struct PlayerContext {
     ///
     /// This allows other action to execute while the previous action is still stalling.
     pub(super) stalling_timeout_buffered: Option<(Timeout, u32)>,
+    pub(super) stalling_timeout_buffered_update_callback: Option<BufferedStallingCallback>,
+    pub(super) stalling_timeout_buffered_end_callback: Option<BufferedStallingCallback>,
 
     /// Stores a list of [`(Point, u64)`] pair samples for approximating velocity.
     velocity_samples: Array<(Point, u64), VELOCITY_SAMPLES>,
@@ -1171,7 +1191,7 @@ impl PlayerContext {
                 buffs,
             );
             self.update_is_dead_state(resources);
-            self.update_stalling_buffer_state();
+            self.update_stalling_buffer_state(resources);
             true
         } else {
             false
@@ -1390,13 +1410,25 @@ impl PlayerContext {
         self.is_dead = is_dead;
     }
 
-    fn update_stalling_buffer_state(&mut self) {
+    fn update_stalling_buffer_state(&mut self, resources: &Resources) {
         if let Some((timeout, max_timeout)) = self.stalling_timeout_buffered {
             self.stalling_timeout_buffered = match next_timeout_lifecycle(timeout, max_timeout) {
-                Lifecycle::Updated(timeout) | Lifecycle::Started(timeout) => {
+                Lifecycle::Updated(timeout) => {
+                    if let Some(callback) = &self.stalling_timeout_buffered_update_callback {
+                        (callback.inner)(resources);
+                    }
+
                     Some((timeout, max_timeout))
                 }
-                Lifecycle::Ended => None,
+                Lifecycle::Started(timeout) => Some((timeout, max_timeout)),
+                Lifecycle::Ended => {
+                    if let Some(callback) = self.stalling_timeout_buffered_end_callback.take() {
+                        (callback.inner)(resources);
+                    }
+                    self.stalling_timeout_buffered_update_callback = None;
+
+                    None
+                }
             }
         }
     }

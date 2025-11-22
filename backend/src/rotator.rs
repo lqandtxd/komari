@@ -1130,6 +1130,7 @@ fn familiar_essence_replenish_priority_action(key: KeyBinding) -> PriorityAction
         inner: RotatorAction::Single(PlayerAction::Key(Key {
             key,
             key_hold_ticks: 0,
+            key_hold_buffered_to_wait_after: false,
             link_key: LinkKeyBinding::None,
             count: 1,
             position: None,
@@ -1248,6 +1249,7 @@ fn buff_priority_action(buff: BuffKind, key: KeyBinding) -> PriorityAction {
         inner: RotatorAction::Single(PlayerAction::Key(Key {
             key,
             key_hold_ticks: 0,
+            key_hold_buffered_to_wait_after: false,
             link_key: LinkKeyBinding::None,
             count: 1,
             position: None,
@@ -1338,6 +1340,7 @@ fn elite_boss_use_key_priority_action(key: KeyBinding) -> PriorityAction {
         inner: RotatorAction::Single(PlayerAction::Key(Key {
             key,
             key_hold_ticks: 0,
+            key_hold_buffered_to_wait_after: false,
             link_key: LinkKeyBinding::None,
             count: 1,
             position: None,

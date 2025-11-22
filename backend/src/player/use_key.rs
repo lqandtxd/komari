@@ -8,10 +8,13 @@ use super::{
 };
 use crate::{
     ActionKeyDirection, ActionKeyWith, Class, KeyBinding, LinkKeyBinding, Position,
-    bridge::KeyKind,
+    bridge::{InputKeyDownOptions, KeyKind},
     ecs::Resources,
     minimap::Minimap,
-    player::{LastMovement, MOVE_TIMEOUT, Moving, Player, PlayerEntity, next_action},
+    player::{
+        LastMovement, MOVE_TIMEOUT, Moving, Player, PlayerEntity, next_action,
+        state::BufferedStallingCallback,
+    },
     transition, transition_from_action, transition_if,
 };
 
@@ -68,6 +71,7 @@ enum PendingTransition {
 pub struct UseKey {
     key: KeyBinding,
     key_hold_ticks: u32,
+    key_hold_buffered_to_wait_after: bool,
     link_key: LinkKeyBinding,
     count: u32,
     current_count: u32,
@@ -86,6 +90,7 @@ impl UseKey {
         let Key {
             key,
             key_hold_ticks,
+            key_hold_buffered_to_wait_after,
             link_key,
             count,
             direction,
@@ -104,6 +109,7 @@ impl UseKey {
         Self {
             key,
             key_hold_ticks,
+            key_hold_buffered_to_wait_after,
             link_key,
             count,
             current_count: 0,
@@ -130,6 +136,7 @@ impl UseKey {
         Self {
             key: mob.key,
             key_hold_ticks: mob.key_hold_ticks,
+            key_hold_buffered_to_wait_after: false,
             link_key: mob.link_key,
             count: mob.count,
             current_count: 0,
@@ -162,6 +169,7 @@ impl UseKey {
         Self {
             key: ping_pong.key,
             key_hold_ticks: ping_pong.key_hold_ticks,
+            key_hold_buffered_to_wait_after: false,
             link_key: ping_pong.link_key,
             count: ping_pong.count,
             current_count: 0,
@@ -174,6 +182,21 @@ impl UseKey {
             action_info: None,
             state: State::Precondition,
         }
+    }
+
+    fn is_last_key_use(&self) -> bool {
+        self.current_count >= self.count - 1
+    }
+
+    fn should_buffer_key_holding(&self) -> bool {
+        let has_hold_ticks = self.key_hold_ticks > 0;
+        let has_no_link_key = matches!(self.link_key, LinkKeyBinding::None);
+
+        has_hold_ticks
+            && has_no_link_key
+            && self.is_last_key_use()
+            && self.wait_after_buffered
+            && self.key_hold_buffered_to_wait_after
     }
 }
 
@@ -235,17 +258,58 @@ pub fn update_use_key_state(
             update_using(resources, &player.context, &mut use_key);
 
             let has_transition = matches!(use_key.pending_transition, PendingTransition::WaitAfter);
-            let is_last_key_use = (use_key.current_count + 1) >= use_key.current_count;
-            let should_buffer = has_transition && use_key.wait_after_buffered && is_last_key_use;
+            let should_buffer =
+                has_transition && use_key.wait_after_buffered && use_key.is_last_key_use();
 
             // TODO: Add test
             if should_buffer {
                 assert!(player.context.stalling_timeout_buffered.is_none());
+                assert!(
+                    player
+                        .context
+                        .stalling_timeout_buffered_update_callback
+                        .is_none()
+                );
+                assert!(
+                    player
+                        .context
+                        .stalling_timeout_buffered_end_callback
+                        .is_none()
+                );
                 assert!(player.context.stalling_timeout_state.is_none());
 
+                let should_buffer_holding = use_key.should_buffer_key_holding();
+                let buffer_ticks = if should_buffer_holding {
+                    use_key.wait_after_use_ticks + use_key.key_hold_ticks
+                } else {
+                    use_key.wait_after_use_ticks
+                };
+                let update_callback = if should_buffer_holding {
+                    Some(BufferedStallingCallback::new(
+                        move |resources: &Resources| {
+                            resources.input.send_key_down_with_options(
+                                use_key.key.into(),
+                                InputKeyDownOptions::default().repeatable(),
+                            );
+                        },
+                    ))
+                } else {
+                    None
+                };
+                let end_callback = if should_buffer_holding {
+                    Some(BufferedStallingCallback::new(
+                        move |resources: &Resources| {
+                            resources.input.send_key_up(use_key.key.into());
+                        },
+                    ))
+                } else {
+                    None
+                };
+
                 use_key.current_count = use_key.count;
-                player.context.stalling_timeout_buffered =
-                    Some((Timeout::default(), use_key.wait_after_use_ticks));
+                player.context.stalling_timeout_buffered = Some((Timeout::default(), buffer_ticks));
+                player.context.stalling_timeout_buffered_update_callback = update_callback;
+                player.context.stalling_timeout_buffered_end_callback = end_callback;
             } else {
                 transition_if!(
                     player,
@@ -431,7 +495,7 @@ fn update_using(resources: &Resources, context: &PlayerContext, use_key: &mut Us
     transition_if!(
         use_key,
         State::Postcondition,
-        use_key.wait_after_use_ticks == 0
+        use_key.wait_after_use_ticks == 0 && !use_key.should_buffer_key_holding()
     );
 
     use_key.pending_transition = PendingTransition::WaitAfter;
@@ -504,18 +568,35 @@ fn update_holding_key(resources: &Resources, use_key: &mut UseKey) {
     }
 
     match next_timeout_lifecycle(using.hold_timeout, use_key.key_hold_ticks) {
-        Lifecycle::Started(timeout) | Lifecycle::Updated(timeout) => {
+        Lifecycle::Started(timeout) => {
             transition!(
                 use_key,
                 State::Using(Using {
                     hold_timeout: timeout,
+                    hold_completed: use_key.should_buffer_key_holding(),
                     ..using
                 }),
                 {
-                    resources.input.send_key_down(use_key.key.into());
+                    resources.input.send_key_down_with_options(
+                        use_key.key.into(),
+                        InputKeyDownOptions::default().repeatable(),
+                    );
                 }
             );
         }
+        Lifecycle::Updated(timeout) => transition!(
+            use_key,
+            State::Using(Using {
+                hold_timeout: timeout,
+                ..using
+            }),
+            {
+                resources.input.send_key_down_with_options(
+                    use_key.key.into(),
+                    InputKeyDownOptions::default().repeatable(),
+                );
+            }
+        ),
         Lifecycle::Ended => {
             transition!(
                 use_key,
@@ -654,6 +735,7 @@ mod tests {
         let mut player = make_player(UseKey {
             key: KeyBinding::A,
             key_hold_ticks: 0,
+            key_hold_buffered_to_wait_after: false,
             link_key: LinkKeyBinding::None,
             count: 1,
             current_count: 0,
@@ -695,6 +777,7 @@ mod tests {
         let mut player = make_player(UseKey {
             key: KeyBinding::A,
             key_hold_ticks: 0,
+            key_hold_buffered_to_wait_after: false,
             link_key: LinkKeyBinding::None,
             count: 1,
             current_count: 0,
@@ -740,6 +823,7 @@ mod tests {
         let mut use_key = UseKey {
             key: KeyBinding::A,
             key_hold_ticks: 0,
+            key_hold_buffered_to_wait_after: false,
             link_key: LinkKeyBinding::None,
             count: 1,
             current_count: 0,
@@ -805,6 +889,7 @@ mod tests {
         let use_key = UseKey {
             key: KeyBinding::A,
             key_hold_ticks: 0,
+            key_hold_buffered_to_wait_after: false,
             link_key: LinkKeyBinding::None,
             count: 3,
             current_count: 0,
@@ -859,6 +944,7 @@ mod tests {
         let use_key = UseKey {
             key: KeyBinding::A,
             key_hold_ticks: 0,
+            key_hold_buffered_to_wait_after: false,
             link_key: LinkKeyBinding::None,
             count: 1,
             current_count: 0,
@@ -896,6 +982,7 @@ mod tests {
         let use_key = UseKey {
             key: KeyBinding::A,
             key_hold_ticks: 0,
+            key_hold_buffered_to_wait_after: false,
             link_key: LinkKeyBinding::None,
             count: 1,
             current_count: 0,
@@ -943,6 +1030,7 @@ mod tests {
         let mut use_key = UseKey {
             key: KeyBinding::A,
             key_hold_ticks: 0,
+            key_hold_buffered_to_wait_after: false,
             link_key: LinkKeyBinding::Along(KeyBinding::Alt),
             count: 1,
             current_count: 0,
@@ -1032,6 +1120,7 @@ mod tests {
         let mut use_key = UseKey {
             key: KeyBinding::A,
             key_hold_ticks: 0,
+            key_hold_buffered_to_wait_after: false,
             link_key: LinkKeyBinding::Before(KeyBinding::Alt),
             count: 1,
             current_count: 0,
@@ -1086,6 +1175,7 @@ mod tests {
         let mut use_key = UseKey {
             key: KeyBinding::A,
             key_hold_ticks: 0,
+            key_hold_buffered_to_wait_after: false,
             link_key: LinkKeyBinding::After(KeyBinding::Alt),
             count: 1,
             current_count: 0,
@@ -1145,6 +1235,7 @@ mod tests {
         let use_key = UseKey {
             key: KeyBinding::A,
             key_hold_ticks: 0,
+            key_hold_buffered_to_wait_after: false,
             link_key: LinkKeyBinding::AtTheSame(KeyBinding::Alt),
             count: 1,
             current_count: 0,

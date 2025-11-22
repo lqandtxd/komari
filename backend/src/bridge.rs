@@ -1,6 +1,6 @@
 use std::{
     cell::RefCell,
-    collections::{HashMap, hash_map::Entry},
+    collections::{HashMap, HashSet, hash_map::Entry},
     fmt::Debug,
 };
 
@@ -18,6 +18,7 @@ use platforms::{
         KeyState as PlatformKeyState, MouseKind as PlatformMouseKind,
     },
 };
+use strum::{EnumIter, IntoEnumIterator};
 
 use crate::{
     CaptureMode, KeyBinding,
@@ -102,7 +103,7 @@ impl From<MouseKind> for PlatformMouseKind {
 /// The kind of key to sent.
 ///
 /// This is a bridge enum between platform-specific, gRPC and database.
-#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy, EnumIter)]
 pub enum KeyKind {
     A,
     B,
@@ -604,6 +605,9 @@ pub trait Input: Debug {
 
     /// Whether all keys are cleared.
     fn all_keys_cleared(&self) -> bool;
+
+    /// Clears all keys regardless of the key is being held or not.
+    fn clear_all_keys(&self);
 }
 
 /// Default implementation of [`Input`].
@@ -748,21 +752,26 @@ impl DefaultInput {
         if map.is_empty() {
             return;
         }
-        map.retain(|kind, (delay, did_send_up)| {
+
+        let mut keys_to_remove = HashSet::new();
+        for (kind, (delay, did_send_up)) in map.iter_mut() {
             *delay = delay.saturating_sub(1);
+
             if *delay == 0 {
                 if !*did_send_up {
                     *did_send_up = true;
                     let _ = self.send_key_up_inner(*kind, true);
                 }
 
-                self.key_state(*kind)
-                    .ok()
-                    .is_some_and(|state| matches!(state, KeyState::Pressed))
-            } else {
-                true
+                if matches!(self.key_state(*kind), Ok(KeyState::Released)) {
+                    keys_to_remove.insert(*kind);
+                }
             }
-        });
+        }
+
+        if !keys_to_remove.is_empty() {
+            map.retain(|kind, _| !keys_to_remove.contains(kind));
+        }
     }
 
     fn random_input_delay_tick_count(&self) -> (f32, u32) {
@@ -833,6 +842,12 @@ impl Input for DefaultInput {
     #[inline]
     fn all_keys_cleared(&self) -> bool {
         self.delay_map.borrow().is_empty()
+    }
+
+    fn clear_all_keys(&self) {
+        for key in KeyKind::iter() {
+            let _ = self.send_key_up_inner(key, true);
+        }
     }
 }
 

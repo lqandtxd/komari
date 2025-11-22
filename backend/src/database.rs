@@ -324,6 +324,8 @@ pub struct ActionConfiguration {
     pub key: KeyBinding,
     #[serde(default)]
     pub key_hold_millis: u64,
+    #[serde(default)]
+    pub key_hold_buffered_to_wait_after: bool,
     #[serde(default, deserialize_with = "deserialize_with_ok_or_default")]
     pub link_key: LinkKeyBinding,
     pub count: u32,
@@ -344,6 +346,7 @@ impl Default for ActionConfiguration {
         Self {
             key: KeyBinding::default(),
             key_hold_millis: 0,
+            key_hold_buffered_to_wait_after: false,
             link_key: LinkKeyBinding::None,
             count: key_count_default(),
             condition: ActionConfigurationCondition::default(),
@@ -363,6 +366,7 @@ impl From<ActionConfiguration> for Action {
         Self::Key(ActionKey {
             key: value.key,
             key_hold_millis: value.key_hold_millis,
+            key_hold_buffered_to_wait_after: value.key_hold_buffered_to_wait_after,
             link_key: value.link_key,
             count: value.count,
             position: None,
@@ -574,6 +578,8 @@ pub struct ActionKey {
     pub key: KeyBinding,
     #[serde(default)]
     pub key_hold_millis: u64,
+    #[serde(default)]
+    pub key_hold_buffered_to_wait_after: bool,
     #[serde(default, deserialize_with = "deserialize_with_ok_or_default")]
     pub link_key: LinkKeyBinding,
     #[serde(default = "count_default")]
@@ -596,6 +602,7 @@ impl Default for ActionKey {
         Self {
             key: KeyBinding::default(),
             key_hold_millis: 0,
+            key_hold_buffered_to_wait_after: false,
             link_key: LinkKeyBinding::None,
             count: count_default(),
             position: None,

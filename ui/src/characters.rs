@@ -1133,21 +1133,34 @@ fn ActionConfigurationInput(
                 },
                 value: Some(action().key),
             }
-            CharactersNumberU32Input {
-                label: "Use count",
-                on_value: move |count| {
-                    let mut action = action.write();
-                    action.count = count;
-                },
-                value: action().count,
+            div { class: "grid grid-cols-2 gap-3",
+                CharactersNumberU32Input {
+                    label: "Use count",
+                    on_value: move |count| {
+                        let mut action = action.write();
+                        action.count = count;
+                    },
+                    value: action().count,
+                }
+                CharactersMillisInput {
+                    label: "Hold for",
+                    on_value: move |millis| {
+                        let mut action = action.write();
+                        action.key_hold_millis = millis;
+                    },
+                    value: action().key_hold_millis,
+                }
             }
-            CharactersMillisInput {
-                label: "Hold for",
-                on_value: move |millis| {
+            CharactersCheckbox {
+                label: "Holding buffered",
+                tooltip: "Require [Wait after buffered] to be enabled and without [Link key]. When enabled, the holding time will be added to [Wait after] during the last key use. Useful for holding down key and moving simultaneously.",
+                tooltip_align: ContentAlign::End,
+                tooltip_side: ContentSide::Bottom,
+                on_checked: move |checked| {
                     let mut action = action.write();
-                    action.key_hold_millis = millis;
+                    action.key_hold_buffered_to_wait_after = checked;
                 },
-                value: action().key_hold_millis,
+                checked: action().key_hold_buffered_to_wait_after,
             }
 
             CharactersKeyInput {
@@ -1561,11 +1574,16 @@ fn CharactersCheckbox(
     checked: bool,
     on_checked: Callback<bool>,
     #[props(default)] tooltip: Option<String>,
+    #[props(default = ContentSide::Top)] tooltip_side: ContentSide,
     #[props(default = ContentAlign::Center)] tooltip_align: ContentAlign,
     #[props(default)] disabled: ReadSignal<bool>,
 ) -> Element {
     rsx! {
-        Labeled { label, tooltip, tooltip_align,
+        Labeled {
+            label,
+            tooltip,
+            tooltip_side,
+            tooltip_align,
             Checkbox { checked, on_checked, disabled }
         }
     }

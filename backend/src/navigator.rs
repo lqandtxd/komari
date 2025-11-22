@@ -415,6 +415,7 @@ impl Navigator for DefaultNavigator {
                             let key = Key {
                                 key: KeyBinding::Up,
                                 key_hold_ticks: 0,
+                                key_hold_buffered_to_wait_after: false,
                                 link_key: LinkKeyBinding::None,
                                 count: 1,
                                 position: Some(position),

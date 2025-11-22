@@ -335,6 +335,7 @@ impl DefaultRequestHandler<'_> {
                         BotAction::Jump => PlayerAction::Key(Key {
                             key: self.world.player.context.config.jump_key.into(),
                             key_hold_ticks: 0,
+                            key_hold_buffered_to_wait_after: false,
                             link_key: LinkKeyBinding::None,
                             count,
                             position: None,
@@ -350,6 +351,7 @@ impl DefaultRequestHandler<'_> {
                             PlayerAction::Key(Key {
                                 key: self.world.player.context.config.jump_key.into(),
                                 key_hold_ticks: 0,
+                                key_hold_buffered_to_wait_after: false,
                                 link_key: LinkKeyBinding::Before(
                                     self.world.player.context.config.jump_key.into(),
                                 ),
@@ -368,6 +370,7 @@ impl DefaultRequestHandler<'_> {
                             PlayerAction::Key(Key {
                                 key: KeyBinding::Down,
                                 key_hold_ticks: 4,
+                                key_hold_buffered_to_wait_after: false,
                                 link_key: LinkKeyBinding::None,
                                 count,
                                 position: None,
@@ -413,6 +416,7 @@ impl DefaultRequestHandler<'_> {
         );
         if matches!(kind, RotateKind::Halt | RotateKind::TemporaryHalt) {
             self.rotator.reset_queue();
+            self.resources.input.clear_all_keys();
             self.world.player.context.clear_actions_aborted(true);
             if let Some(handle) = self.service.pending_halt.take() {
                 handle.abort();
@@ -422,6 +426,7 @@ impl DefaultRequestHandler<'_> {
 
     fn update_halt_or_panic(&mut self, should_halt: bool, should_panic: bool) {
         self.rotator.reset_queue();
+        self.resources.input.clear_all_keys();
         self.world
             .player
             .context
