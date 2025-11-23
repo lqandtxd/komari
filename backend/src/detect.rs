@@ -74,6 +74,7 @@ pub enum ArrowsState {
 #[derive(Debug, Copy, Clone, Default)]
 pub struct ArrowsCalibrating {
     spin_arrows: Option<Array<SpinArrow, MAX_SPIN_ARROWS>>,
+    spin_arrows_calibrate_count: u32,
     spin_arrows_calibrated: bool,
     #[cfg(debug_assertions)]
     is_spin_testing: bool,
@@ -1809,8 +1810,12 @@ fn detect_rune_arrows(
     mut calibrating: ArrowsCalibrating,
 ) -> Result<ArrowsState> {
     const SCORE_THRESHOLD: f32 = 0.8;
+    const MAX_CALIBRATE_COUNT: u32 = 3;
 
-    if !calibrating.spin_arrows_calibrated {
+    if !calibrating.spin_arrows_calibrated
+        && calibrating.spin_arrows_calibrate_count < MAX_CALIBRATE_COUNT
+    {
+        calibrating.spin_arrows_calibrate_count += 1;
         calibrate_for_spin_arrows(bgr, &mut calibrating);
         return Ok(ArrowsState::Calibrating(calibrating));
     }
@@ -1852,12 +1857,10 @@ fn detect_rune_arrows(
         .into_iter()
         .filter_map(|(rect, arrow, score)| (score >= SCORE_THRESHOLD).then_some((rect, arrow)))
         .collect::<Vec<_>>();
-    // TODO: If there are spinning arrows, either set the limit internally
-    // or ensure caller only try to solve rune for a fixed time frame. Otherwise, it may
-    // return `[ArrowsState::Calibrating]` forever.
     if calibrating.spin_arrows.is_some() {
         if result.len() != MAX_ARROWS / 2 {
-            return Ok(ArrowsState::Calibrating(calibrating));
+            info!(target: "rune", "spin arrows detection completed but normal arrows failed");
+            return Err(anyhow!("failed to detect normal rune arrows"));
         }
         let mut vec = calibrating
             .spin_arrows
@@ -1874,7 +1877,7 @@ fn detect_rune_arrows(
     if result.len() == MAX_ARROWS {
         Ok(ArrowsState::Complete(extract_rune_arrows_to_slice(result)))
     } else {
-        Err(anyhow!("no rune arrow detected"))
+        Err(anyhow!("failed to detect rune arrows"))
     }
 }
 
