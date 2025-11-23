@@ -3,7 +3,7 @@ use dioxus::prelude::*;
 use crate::components::{icons::PositionIcon, numbers::PrimitiveIntegerInput};
 
 const ICON_CONTAINER_CLASS: &str =
-    "absolute invisible group-hover:visible top-0 right-1 w-fit h-fit flex items-center";
+    "absolute invisible group-hover:visible top-0 right-1 w-fit h-full flex items-center";
 const ICON_CLASS: &str = "size-3";
 
 #[derive(Props, PartialEq, Clone)]
@@ -23,7 +23,7 @@ pub fn PositionInput(props: PositionInputProps) -> Element {
     let disabled = props.disabled;
 
     rsx! {
-        div { class: "relative group inline-block",
+        div { class: "relative group inline-block leading-0",
             PrimitiveIntegerInput { on_value, value, disabled }
 
             if let Some(on_icon_click) = on_icon_click() {
