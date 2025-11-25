@@ -309,7 +309,9 @@ fn update_free_slot(resources: &Resources, swapping: &mut FamiliarsSwapping) {
                             );
 
                             // All of the slots are occupied and non-level-5
-                            transition!(swapping, State::Completing(Timeout::default(), false));
+                            transition!(swapping, State::Completing(Timeout::default(), false), {
+                                swapping.success = true;
+                            });
                         }
                         // Could mean UI being closed
                         Err(_) => transition!(swapping, State::FreeSlots(index, true)),
