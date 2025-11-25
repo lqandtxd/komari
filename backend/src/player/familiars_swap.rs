@@ -57,6 +57,8 @@ pub struct FamiliarsSwapping {
     swappable_rarities: Array<FamiliarRarity, 2>,
     /// Mouse rest point for other operations.
     mouse_rest: Point,
+    /// Whether swapping is successful.
+    success: bool,
 }
 
 impl Display for FamiliarsSwapping {
@@ -88,6 +90,7 @@ impl FamiliarsSwapping {
             swappable_slots,
             swappable_rarities,
             mouse_rest: Point::new(50, 50),
+            success: false,
         }
     }
 }
@@ -131,7 +134,18 @@ pub fn update_familiars_swapping_state(resources: &Resources, player: &mut Playe
     };
 
     match next_action(&player.context) {
-        Some(_) => transition_from_action!(player, next, matches!(next, Player::Idle)),
+        Some(_) => {
+            let is_terminal = matches!(next, Player::Idle);
+            if is_terminal {
+                if swapping.success {
+                    player.context.track_familiars_swap_fail_count();
+                } else {
+                    player.context.clear_familiars_swap_fail_count();
+                }
+            }
+
+            transition_from_action!(player, next, is_terminal)
+        }
         None => transition!(player, Player::Idle), // Force cancel if not from action
     }
 }
@@ -369,6 +383,8 @@ fn update_find_cards(resources: &Resources, swapping: &mut FamiliarsSwapping) {
 }
 
 fn update_swapping(resources: &Resources, swapping: &mut FamiliarsSwapping) {
+    /// Checks only for the first fixed number of familiar cards.
+    const MAX_CHECK_COUNT: usize = 10;
     const SWAPPING_TIMEOUT: u32 = 10;
     const SWAPPING_DETECT_LEVEL_TICK: u32 = 5;
 
@@ -401,17 +417,9 @@ fn update_swapping(resources: &Resources, swapping: &mut FamiliarsSwapping) {
             transition_if!(
                 swapping,
                 State::Swapping(Timeout::default(), index + 1),
-                index + 1 < swapping.cards.len()
+                State::Completing(Timeout::default(), false),
+                index + 1 < swapping.cards.len().min(MAX_CHECK_COUNT)
             );
-
-            // Try scroll for more cards
-            transition!(swapping, State::Scrolling(Timeout::default(), None, 0), {
-                resources.input.send_mouse(
-                    swapping.mouse_rest.x,
-                    swapping.mouse_rest.y,
-                    MouseKind::Move,
-                );
-            });
         }
         Lifecycle::Updated(timeout) => {
             if timeout.current == SWAPPING_DETECT_LEVEL_TICK {
@@ -539,6 +547,7 @@ fn update_saving(resources: &Resources, swapping: &mut FamiliarsSwapping) {
             if let Ok(button) = resources.detector().detect_popup_confirm_button() {
                 let (x, y) = bbox_click_point(button);
                 resources.input.send_mouse(x, y, MouseKind::Click);
+                swapping.success = true;
             }
         }),
         Lifecycle::Updated(timeout) => transition!(swapping, State::Saving(timeout)),
@@ -806,16 +815,13 @@ mod tests {
     }
 
     #[test]
-    fn update_swapping_timeout_advance_to_scroll_if_slot_available_and_card_unavailable() {
-        let mut keys = MockInput::default();
-        // Called when moving to rest before scrolling transition
-        keys.expect_send_mouse().once();
+    fn update_swapping_timeout_completing_if_max_check_exceeded() {
         let mut detector = MockDetector::default();
         detector
             .expect_detect_familiar_slot_is_free()
             .times(FAMILIAR_SLOTS)
             .returning(|_| true);
-        let resources = Resources::new(Some(keys), Some(detector));
+        let resources = Resources::new(None, Some(detector));
 
         let mut swapping = FamiliarsSwapping::new(SwappableFamiliars::All, Array::new());
         let bbox = Default::default();
@@ -834,7 +840,7 @@ mod tests {
 
         update_swapping(&resources, &mut swapping);
 
-        assert_matches!(swapping.state, State::Scrolling(_, None, 0));
+        assert_matches!(swapping.state, State::Completing(_, false));
     }
 
     #[test]

@@ -869,13 +869,12 @@ impl Rotator for DefaultRotator {
         if enable_familiars_swapping {
             self.priority_actions.insert(
                 next_action_id(),
-                priority_action(
-                    RotatorAction::Single(PlayerAction::FamiliarsSwap(FamiliarsSwap {
+                familiars_swap_priority_action(
+                    FamiliarsSwap {
                         swappable_slots: familiar_swappable_slots,
                         swappable_rarities: Array::from_iter(familiar_swappable_rarities.clone()),
-                    })),
-                    ActionCondition::EveryMillis(familiar_swap_check_millis),
-                    true,
+                    },
+                    familiar_swap_check_millis,
                 ),
             );
         }
@@ -1142,6 +1141,32 @@ fn familiar_essence_replenish_priority_action(key: KeyBinding) -> PriorityAction
             wait_after_use_ticks_random_range: 0,
             wait_after_buffered: false,
         })),
+        queue_to_front: true,
+        queue_info: PriorityActionQueueInfo::default(),
+    }
+}
+
+#[inline]
+fn familiars_swap_priority_action(swap: FamiliarsSwap, swap_check_millis: u64) -> PriorityAction {
+    PriorityAction {
+        condition: Condition(Box::new(move |_, world, info| {
+            if !at_least_millis_passed_since(info.last_queued_time, swap_check_millis.into()) {
+                return ConditionResult::Skip;
+            }
+
+            if world
+                .player
+                .context
+                .is_familiars_swap_fail_count_limit_reached()
+            {
+                return ConditionResult::Skip;
+            }
+
+            ConditionResult::Queue
+        })),
+        condition_kind: None,
+        metadata: None,
+        inner: RotatorAction::Single(PlayerAction::FamiliarsSwap(swap)),
         queue_to_front: true,
         queue_info: PriorityActionQueueInfo::default(),
     }

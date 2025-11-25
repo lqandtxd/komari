@@ -32,6 +32,10 @@ const MAX_RUNE_FAILED_COUNT: u32 = 8;
 /// usable anymore (e.g. 10 times limit reached).
 const MAX_BOOSTER_FAILED_COUNT: u32 = 5;
 
+/// The maximum number of times familiars swapping can be attempted before it is determined that
+/// there are no more cards to swap (e.g. All cards are at level 5).
+const MAX_FAMILIARS_SWAP_FAIL_COUNT: u32 = 3;
+
 /// The maximum number of times horizontal movement can be repeated in non-auto-mobbing action.
 const HORIZONTAL_MOVEMENT_REPEAT_COUNT: u32 = 20;
 
@@ -361,6 +365,9 @@ pub struct PlayerContext {
     vip_booster_failed_count: u32,
     /// The number of times [`Player::UsingBooster`] for HEXA Booster failed.
     hexa_booster_failed_count: u32,
+
+    /// The number of times [`Player::FamiliarsSwapping`] failed.
+    familiars_swap_failed_count: u32,
 }
 
 impl PlayerContext {
@@ -604,6 +611,25 @@ impl PlayerContext {
                 self.hexa_booster_failed_count = 0;
             }
         }
+    }
+
+    #[inline]
+    pub fn is_familiars_swap_fail_count_limit_reached(&self) -> bool {
+        self.familiars_swap_failed_count >= MAX_FAMILIARS_SWAP_FAIL_COUNT
+    }
+
+    /// Increments familiars swap fail count.
+    #[inline]
+    pub(super) fn track_familiars_swap_fail_count(&mut self) {
+        if self.familiars_swap_failed_count < MAX_FAMILIARS_SWAP_FAIL_COUNT {
+            self.familiars_swap_failed_count += 1;
+        }
+    }
+
+    /// Resets familiars swap fail count.
+    #[inline]
+    pub(super) fn clear_familiars_swap_fail_count(&mut self) {
+        self.familiars_swap_failed_count = 0;
     }
 
     /// Increments the rune validation fail count and sets [`PlayerState::rune_cash_shop`]
