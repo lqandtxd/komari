@@ -54,7 +54,7 @@ pub use {
         ActionKeyDirection, ActionKeyWith, ActionMove, Bound, Character, Class, DatabaseEvent,
         EliteBossBehavior, LinkKeyBinding, Minimap, MobbingKey, NavigationPath, NavigationPaths,
         NavigationPoint, NavigationTransition, Platform, Position, PotionMode, RotationMode,
-        database_event_receiver,
+        WaitAfterBuffered, database_event_receiver,
     },
     models::*,
     pathing::MAX_PLATFORMS_COUNT,

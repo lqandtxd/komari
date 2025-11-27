@@ -7,7 +7,7 @@ use std::{
 use backend::{
     Action, ActionCondition, ActionKey, ActionKeyDirection, ActionKeyWith, ActionMove, Bound,
     IntoEnumIterator, KeyBinding, LinkKeyBinding, Minimap, MobbingKey, Platform, Position,
-    RotationMode, key_receiver, update_minimap, upsert_minimap,
+    RotationMode, WaitAfterBuffered, key_receiver, update_minimap, upsert_minimap,
 };
 use dioxus::{html::FileData, prelude::*};
 use futures_util::StreamExt;
@@ -1683,14 +1683,15 @@ fn ActionKeyInput(
                 value: action().wait_after_use_millis_random_range,
             }
             if bufferable {
-                ActionsCheckbox {
+                ActionsSelect::<WaitAfterBuffered> {
                     label: "Wait after buffered",
                     tooltip: "After the last key use, instead of waiting inplace, the bot is allowed to execute the next action partially. This can be useful for movable skill with casting animation.",
-                    on_checked: move |wait_after_buffered: bool| {
+                    disabled: false,
+                    on_selected: move |wait_after_buffered: WaitAfterBuffered| {
                         let mut action = action.write();
                         action.wait_after_buffered = wait_after_buffered;
                     },
-                    checked: action().wait_after_buffered,
+                    selected: action().wait_after_buffered,
                 }
             }
         }
@@ -1963,6 +1964,8 @@ fn ActionKeyItem(action: ActionKey) -> Element {
 #[component]
 fn ActionsSelect<T: 'static + Clone + PartialEq + Display + IntoEnumIterator>(
     label: &'static str,
+    #[props(default)] tooltip: Option<String>,
+    #[props(default = ContentAlign::Start)] tooltip_align: ContentAlign,
     disabled: bool,
     on_selected: Callback<T>,
     selected: ReadSignal<T>,
@@ -1971,7 +1974,7 @@ fn ActionsSelect<T: 'static + Clone + PartialEq + Display + IntoEnumIterator>(
         use_callback(move |value: T| discriminant(&selected()) == discriminant(&value));
 
     rsx! {
-        Labeled { label,
+        Labeled { label, tooltip, tooltip_align,
             Select::<T> { on_selected, disabled,
 
                 for value in T::iter() {

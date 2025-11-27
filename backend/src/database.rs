@@ -335,8 +335,8 @@ pub struct ActionConfiguration {
     pub wait_before_millis_random_range: u64,
     pub wait_after_millis: u64,
     pub wait_after_millis_random_range: u64,
-    #[serde(default)]
-    pub wait_after_buffered: bool,
+    #[serde(default, deserialize_with = "deserialize_with_ok_or_default")]
+    pub wait_after_buffered: WaitAfterBuffered,
     pub enabled: bool,
 }
 
@@ -355,7 +355,7 @@ impl Default for ActionConfiguration {
             wait_before_millis_random_range: 0,
             wait_after_millis: 500,
             wait_after_millis_random_range: 0,
-            wait_after_buffered: false,
+            wait_after_buffered: WaitAfterBuffered::None,
             enabled: false,
         }
     }
@@ -592,8 +592,8 @@ pub struct ActionKey {
     pub wait_before_use_millis_random_range: u64,
     pub wait_after_use_millis: u64,
     pub wait_after_use_millis_random_range: u64,
-    #[serde(default)]
-    pub wait_after_buffered: bool,
+    #[serde(default, deserialize_with = "deserialize_with_ok_or_default")]
+    pub wait_after_buffered: WaitAfterBuffered,
     pub queue_to_front: Option<bool>,
 }
 
@@ -613,10 +613,19 @@ impl Default for ActionKey {
             wait_before_use_millis_random_range: 0,
             wait_after_use_millis: 0,
             wait_after_use_millis_random_range: 0,
-            wait_after_buffered: false,
+            wait_after_buffered: WaitAfterBuffered::None,
             queue_to_front: None,
         }
     }
+}
+#[derive(
+    Clone, Copy, Display, EnumString, EnumIter, PartialEq, Debug, Serialize, Deserialize, Default,
+)]
+pub enum WaitAfterBuffered {
+    #[default]
+    None,
+    Interruptible,
+    Uninterruptible,
 }
 
 #[derive(

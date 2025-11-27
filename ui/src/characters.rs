@@ -3,8 +3,8 @@ use std::{fmt::Display, mem};
 use backend::{
     ActionConfiguration, ActionConfigurationCondition, ActionKeyWith, Character, Class,
     EliteBossBehavior, ExchangeHexaBoosterCondition, IntoEnumIterator, KeyBinding,
-    KeyBindingConfiguration, LinkKeyBinding, PotionMode, delete_character, query_characters,
-    update_character, upsert_character,
+    KeyBindingConfiguration, LinkKeyBinding, PotionMode, WaitAfterBuffered, delete_character,
+    query_characters, update_character, upsert_character,
 };
 use dioxus::{html::FileData, prelude::*};
 use futures_util::StreamExt;
@@ -1254,15 +1254,15 @@ fn ActionConfigurationInput(
                 },
                 value: action().wait_after_millis_random_range,
             }
-            CharactersCheckbox {
+            CharactersSelect::<WaitAfterBuffered> {
                 label: "Wait after buffered",
                 tooltip: "After the last key use, instead of waiting inplace, the bot is allowed to execute the next action partially. This can be useful for movable skill with casting animation.",
                 tooltip_align: ContentAlign::End,
-                on_checked: move |wait_after_buffered: bool| {
+                on_selected: move |wait_after_buffered: WaitAfterBuffered| {
                     let mut action = action.write();
                     action.wait_after_buffered = wait_after_buffered;
                 },
-                checked: action().wait_after_buffered,
+                selected: action().wait_after_buffered,
             }
         }
         div { class: "flex w-full gap-3 absolute bottom-0 py-2 bg-secondary-surface",
@@ -1592,6 +1592,7 @@ fn CharactersSelect<T: PartialEq + Clone + Display + IntoEnumIterator + 'static>
     label: &'static str,
     #[props(default)] label_class: String,
     #[props(default)] tooltip: Option<String>,
+    #[props(default = ContentAlign::Start)] tooltip_align: ContentAlign,
     on_selected: Callback<T>,
     selected: ReadSignal<T>,
     #[props(default)] disabled: ReadSignal<bool>,
@@ -1600,7 +1601,11 @@ fn CharactersSelect<T: PartialEq + Clone + Display + IntoEnumIterator + 'static>
         use_callback(move |value: T| mem::discriminant(&selected()) == mem::discriminant(&value));
 
     rsx! {
-        Labeled { label, class: label_class, tooltip,
+        Labeled {
+            label,
+            class: label_class,
+            tooltip,
+            tooltip_align,
             Select::<T> {
                 on_selected: move |selected| {
                     on_selected(selected);

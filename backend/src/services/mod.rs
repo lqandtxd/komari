@@ -18,6 +18,7 @@ use crate::{
     LinkKeyBinding, Localization, Minimap, NavigationPath, RequestHandler, RotateKind, Settings,
     bridge::{Capture, DefaultInputReceiver, Input},
     control::{BotAction, BotCommandKind},
+    database::WaitAfterBuffered,
     detect::to_base64_from_mat,
     ecs::{Resources, World, WorldEvent},
     navigator::Navigator,
@@ -345,7 +346,7 @@ impl DefaultRequestHandler<'_> {
                             wait_before_use_ticks_random_range: 5,
                             wait_after_use_ticks: 15,
                             wait_after_use_ticks_random_range: 0,
-                            wait_after_buffered: false,
+                            wait_after_buffered: WaitAfterBuffered::None,
                         }),
                         BotAction::DoubleJump => {
                             PlayerAction::Key(Key {
@@ -363,7 +364,7 @@ impl DefaultRequestHandler<'_> {
                                 wait_before_use_ticks_random_range: 0,
                                 wait_after_use_ticks: 0,
                                 wait_after_use_ticks_random_range: 55,
-                                wait_after_buffered: false,
+                                wait_after_buffered: WaitAfterBuffered::None,
                             })
                         }
                         BotAction::Crouch => {
@@ -380,7 +381,7 @@ impl DefaultRequestHandler<'_> {
                                 wait_before_use_ticks_random_range: 0,
                                 wait_after_use_ticks: 10,
                                 wait_after_use_ticks_random_range: 0,
-                                wait_after_buffered: false,
+                                wait_after_buffered: WaitAfterBuffered::None,
                             })
                         }
                     };

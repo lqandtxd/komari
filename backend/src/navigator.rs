@@ -20,7 +20,7 @@ use tokio::sync::broadcast::Receiver;
 
 use crate::{
     ActionKeyDirection, ActionKeyWith, KeyBinding, LinkKeyBinding, NavigationPaths, Position,
-    database::{NavigationPath, NavigationTransition, query_navigation_paths},
+    database::{NavigationPath, NavigationTransition, WaitAfterBuffered, query_navigation_paths},
     detect::Detector,
     ecs::{Resources, WorldEvent},
     minimap::Minimap,
@@ -425,7 +425,7 @@ impl Navigator for DefaultNavigator {
                                 wait_before_use_ticks_random_range: 0,
                                 wait_after_use_ticks: 0,
                                 wait_after_use_ticks_random_range: 0,
-                                wait_after_buffered: false,
+                                wait_after_buffered: WaitAfterBuffered::None,
                             };
                             player_context.set_priority_action(None, PlayerAction::Key(key));
                         }

@@ -6,9 +6,15 @@ use strum::Display;
 use super::{Player, PlayerContext, use_key::UseKey};
 use crate::{
     Action, ActionKey, ActionKeyDirection, ActionKeyWith, ActionMove, FamiliarRarity, KeyBinding,
-    Position, SwappableFamiliars, array::Array, bridge::KeyKind, database::LinkKeyBinding,
-    ecs::Resources, minimap::Minimap, player::PlayerEntity, run::MS_PER_TICK, transition,
-    transition_if,
+    Position, SwappableFamiliars,
+    array::Array,
+    bridge::KeyKind,
+    database::{LinkKeyBinding, WaitAfterBuffered},
+    ecs::Resources,
+    minimap::Minimap,
+    player::PlayerEntity,
+    run::MS_PER_TICK,
+    transition, transition_if,
 };
 
 /// The minimum x distance required to transition to [`Player::UseKey`] in auto mob action.
@@ -34,7 +40,7 @@ pub struct Key {
     pub wait_before_use_ticks_random_range: u32,
     pub wait_after_use_ticks: u32,
     pub wait_after_use_ticks_random_range: u32,
-    pub wait_after_buffered: bool,
+    pub wait_after_buffered: WaitAfterBuffered,
 }
 
 impl From<ActionKey> for Key {

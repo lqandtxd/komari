@@ -289,8 +289,6 @@ pub struct PlayerContext {
     /// This is true each time player receives [`PlayerAction`].
     pub(super) reset_to_idle_next_update: bool,
     /// Indicates whether to reset stalling buffer states on next update.
-    ///
-    /// This is true each time priority action is set.
     pub(super) reset_stalling_buffer_states_next_update: bool,
 
     /// Indicates the last movement.
@@ -355,6 +353,7 @@ pub struct PlayerContext {
     pub(super) stalling_timeout_buffered: Option<(Timeout, u32)>,
     pub(super) stalling_timeout_buffered_update_callback: Option<BufferedStallingCallback>,
     pub(super) stalling_timeout_buffered_end_callback: Option<BufferedStallingCallback>,
+    pub(super) stalling_timeout_buffered_interruptible: bool,
 
     /// Stores a list of [`(Point, u64)`] pair samples for approximating velocity.
     velocity_samples: Array<(Point, u64), VELOCITY_SAMPLES>,
@@ -485,7 +484,11 @@ impl PlayerContext {
     ) -> Option<u32> {
         let prev_id = self.priority_action_id;
         self.reset_to_idle_next_update = true;
-        self.reset_stalling_buffer_states_next_update = !matches!(action, PlayerAction::Move(_));
+        self.reset_stalling_buffer_states_next_update = match action {
+            PlayerAction::Move(_) => false,
+            PlayerAction::Key(_) => self.stalling_timeout_buffered_interruptible,
+            _ => true,
+        };
         self.priority_action_id = id;
 
         if self.priority_action.replace(action).is_some() {

@@ -9,6 +9,7 @@ use super::{
 use crate::{
     ActionKeyDirection, ActionKeyWith, Class, LinkKeyBinding, Position,
     bridge::{InputKeyDownOptions, KeyKind},
+    database::WaitAfterBuffered,
     ecs::Resources,
     minimap::Minimap,
     player::{
@@ -100,7 +101,7 @@ pub struct UseKey {
     with: ActionKeyWith,
     wait_before_use_ticks: u32,
     wait_after_use_ticks: u32,
-    wait_after_buffered: bool,
+    wait_after_buffered: WaitAfterBuffered,
     pending_transition: PendingTransition,
     action_info: Option<ActionInfo>,
     state: State,
@@ -165,7 +166,7 @@ impl UseKey {
             with: mob.with,
             wait_before_use_ticks: wait_before,
             wait_after_use_ticks: wait_after,
-            wait_after_buffered: false,
+            wait_after_buffered: WaitAfterBuffered::None,
             pending_transition: PendingTransition::None,
             action_info: Some(ActionInfo::AutoMobbing { should_terminate }),
             state: State::Precondition,
@@ -198,7 +199,7 @@ impl UseKey {
             with: ping_pong.with,
             wait_before_use_ticks: wait_before,
             wait_after_use_ticks: wait_after,
-            wait_after_buffered: false,
+            wait_after_buffered: WaitAfterBuffered::None,
             pending_transition: PendingTransition::None,
             action_info: None,
             state: State::Precondition,
@@ -209,11 +210,15 @@ impl UseKey {
         self.current_count >= self.count - 1
     }
 
+    fn has_wait_after_buffer(&self) -> bool {
+        !matches!(self.wait_after_buffered, WaitAfterBuffered::None)
+    }
+
     fn should_buffer_key_holding(&self) -> bool {
         self.key_hold_ticks > 0
             && matches!(self.link_key, LinkKeyKind::None)
             && self.is_last_key_use()
-            && self.wait_after_buffered
+            && self.has_wait_after_buffer()
             && self.key_hold_buffered_to_wait_after
     }
 }
@@ -277,7 +282,7 @@ pub fn update_use_key_state(
 
             let has_transition = matches!(use_key.pending_transition, PendingTransition::WaitAfter);
             let should_buffer =
-                has_transition && use_key.wait_after_buffered && use_key.is_last_key_use();
+                has_transition && use_key.has_wait_after_buffer() && use_key.is_last_key_use();
 
             if should_buffer {
                 let should_buffer_holding = use_key.should_buffer_key_holding();
@@ -312,6 +317,10 @@ pub fn update_use_key_state(
                 player.context.stalling_timeout_buffered = Some((Timeout::default(), buffer_ticks));
                 player.context.stalling_timeout_buffered_update_callback = update_callback;
                 player.context.stalling_timeout_buffered_end_callback = end_callback;
+                player.context.stalling_timeout_buffered_interruptible = matches!(
+                    use_key.wait_after_buffered,
+                    WaitAfterBuffered::Interruptible
+                );
             } else {
                 transition_if!(
                     player,
@@ -346,7 +355,7 @@ pub fn update_use_key_state(
             ..
         })) => {
             assert!(!use_key.key_hold_buffered_to_wait_after);
-            assert!(!use_key.wait_after_buffered);
+            assert!(use_key.wait_after_buffered == WaitAfterBuffered::None);
 
             let should_terminate = matches!(
                 use_key.action_info,
@@ -371,7 +380,7 @@ pub fn update_use_key_state(
 
         Some(PlayerAction::PingPong(ping_pong)) => {
             assert!(!use_key.key_hold_buffered_to_wait_after);
-            assert!(!use_key.wait_after_buffered);
+            assert!(use_key.wait_after_buffered == WaitAfterBuffered::None);
 
             transition_if!(player, player_next_state, !is_terminal);
 
@@ -717,6 +726,7 @@ mod tests {
     use crate::{
         ActionKeyDirection, ActionKeyWith,
         bridge::{InputKeyDownOptions, KeyKind, MockInput},
+        database::WaitAfterBuffered,
         ecs::Resources,
         minimap::Minimap,
         player::{
@@ -749,7 +759,7 @@ mod tests {
             wait_after_use_ticks: 0,
             action_info: None,
             state: State::Precondition,
-            wait_after_buffered: false,
+            wait_after_buffered: WaitAfterBuffered::None,
             pending_transition: PendingTransition::None,
         });
 
@@ -791,7 +801,7 @@ mod tests {
             wait_after_use_ticks: 0,
             action_info: None,
             state: State::Precondition,
-            wait_after_buffered: false,
+            wait_after_buffered: WaitAfterBuffered::None,
             pending_transition: PendingTransition::None,
         });
         player.context.last_known_pos = Some(Point::default());
@@ -837,7 +847,7 @@ mod tests {
             wait_after_use_ticks: 0,
             action_info: None,
             state: State::Precondition,
-            wait_after_buffered: false,
+            wait_after_buffered: WaitAfterBuffered::None,
             pending_transition: PendingTransition::None,
         };
         let mut player = make_player(use_key);
@@ -903,7 +913,7 @@ mod tests {
             wait_after_use_ticks: 0,
             action_info: None,
             state: State::Precondition,
-            wait_after_buffered: false,
+            wait_after_buffered: WaitAfterBuffered::None,
             pending_transition: PendingTransition::None,
         };
         let mut player = make_player(use_key);
@@ -958,7 +968,7 @@ mod tests {
             wait_after_use_ticks: 0,
             action_info: None,
             state: State::Precondition,
-            wait_after_buffered: false,
+            wait_after_buffered: WaitAfterBuffered::None,
             pending_transition: PendingTransition::None,
         };
         let mut player = make_player(use_key);
@@ -995,7 +1005,7 @@ mod tests {
             wait_before_use_ticks: 0,
             wait_after_use_ticks: 7,
             action_info: None,
-            wait_after_buffered: false,
+            wait_after_buffered: WaitAfterBuffered::None,
             state: State::Using(Using::default()),
             pending_transition: PendingTransition::None,
         };
@@ -1044,7 +1054,7 @@ mod tests {
             wait_after_use_ticks: 0,
             action_info: None,
             state: State::Using(Using::default()),
-            wait_after_buffered: false,
+            wait_after_buffered: WaitAfterBuffered::None,
             pending_transition: PendingTransition::None,
         };
         let mut player = make_player(use_key);
@@ -1134,7 +1144,7 @@ mod tests {
             wait_after_use_ticks: 0,
             action_info: None,
             state: State::Using(Using::default()),
-            wait_after_buffered: false,
+            wait_after_buffered: WaitAfterBuffered::None,
             pending_transition: PendingTransition::None,
         };
         let mut player = make_player(use_key);
@@ -1189,7 +1199,7 @@ mod tests {
             wait_after_use_ticks: 0,
             action_info: None,
             state: State::Using(Using::default()),
-            wait_after_buffered: false,
+            wait_after_buffered: WaitAfterBuffered::None,
             pending_transition: PendingTransition::None,
         };
         let mut player = make_player(use_key);
@@ -1249,7 +1259,7 @@ mod tests {
             wait_after_use_ticks: 0,
             action_info: None,
             state: State::Using(Using::default()),
-            wait_after_buffered: false,
+            wait_after_buffered: WaitAfterBuffered::None,
             pending_transition: PendingTransition::None,
         };
         let mut player = make_player(use_key);
@@ -1293,7 +1303,7 @@ mod tests {
             with: ActionKeyWith::Any,
             wait_before_use_ticks: 0,
             wait_after_use_ticks: 0,
-            wait_after_buffered: false,
+            wait_after_buffered: WaitAfterBuffered::None,
             pending_transition: PendingTransition::None,
             action_info: None,
             state: State::Using(Using::default()),
@@ -1332,7 +1342,7 @@ mod tests {
             with: ActionKeyWith::Any,
             wait_before_use_ticks: 0,
             wait_after_use_ticks: 4,
-            wait_after_buffered: true,
+            wait_after_buffered: WaitAfterBuffered::Interruptible,
             pending_transition: PendingTransition::None,
             action_info: None,
             state: State::Using(Using::default()),
@@ -1366,6 +1376,7 @@ mod tests {
                 .stalling_timeout_buffered_end_callback
                 .is_some()
         );
+        assert!(player.context.stalling_timeout_buffered_interruptible);
     }
 
     #[test]
@@ -1405,7 +1416,7 @@ mod tests {
 
             wait_before_use_ticks: 0,
             wait_after_use_ticks: 5,
-            wait_after_buffered: true,
+            wait_after_buffered: WaitAfterBuffered::Uninterruptible,
 
             direction: ActionKeyDirection::Any,
             with: ActionKeyWith::Any,
@@ -1463,5 +1474,6 @@ mod tests {
                 .stalling_timeout_buffered_end_callback
                 .is_some()
         );
+        assert!(!player.context.stalling_timeout_buffered_interruptible);
     }
 }
