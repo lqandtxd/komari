@@ -529,6 +529,7 @@ impl InputReceiver for DefaultInputReceiver {
 
 /// Options for key down input.
 #[derive(Debug, Default)]
+#[cfg_attr(test, derive(PartialEq))]
 pub struct InputKeyDownOptions {
     /// Whether the down stroke can be repeated even if the key is already down.
     ///

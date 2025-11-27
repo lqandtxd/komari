@@ -7,7 +7,7 @@ use super::{
     timeout::{Lifecycle, next_timeout_lifecycle},
 };
 use crate::{
-    ActionKeyDirection, ActionKeyWith, Class, KeyBinding, LinkKeyBinding, Position,
+    ActionKeyDirection, ActionKeyWith, Class, LinkKeyBinding, Position,
     bridge::{InputKeyDownOptions, KeyKind},
     ecs::Resources,
     minimap::Minimap,
@@ -21,7 +21,7 @@ use crate::{
 /// The total number of ticks for changing direction before timing out.
 const CHANGE_DIRECTION_TIMEOUT: u32 = 3;
 
-/// The tick to which the actual key will be pressed for [`LinkKeyBinding::Along`].
+/// The tick to which the actual key will be pressed for [`LinkKeyKind::Along`].
 const LINK_ALONG_PRESS_TICK: u32 = 2;
 
 #[derive(Clone, Copy, Debug)]
@@ -44,7 +44,7 @@ enum State {
     /// Returns to [`State::Precondition`] if player is stationary or
     /// transfers to [`Player::DoubleJumping`].
     EnsuringUseWith,
-    /// Uses the actual key with optional [`LinkKeyBinding`], [`UseKey::key_hold_ticks`] and stalls
+    /// Uses the actual key with optional [`LinkKeyKind`], [`UseKey::key_hold_ticks`] and stalls
     /// for [`UseKey::wait_after_use_ticks`].
     Using(Using),
     /// Ensures all [`UseKey::count`] times executed.
@@ -68,11 +68,32 @@ enum PendingTransition {
 }
 
 #[derive(Clone, Copy, Debug)]
+enum LinkKeyKind {
+    None,
+    Before(KeyKind),
+    AtTheSame(KeyKind),
+    After(KeyKind),
+    Along(KeyKind),
+}
+
+impl From<LinkKeyBinding> for LinkKeyKind {
+    fn from(value: LinkKeyBinding) -> Self {
+        match value {
+            LinkKeyBinding::None => LinkKeyKind::None,
+            LinkKeyBinding::Before(key) => LinkKeyKind::Before(key.into()),
+            LinkKeyBinding::AtTheSame(key) => LinkKeyKind::AtTheSame(key.into()),
+            LinkKeyBinding::After(key) => LinkKeyKind::After(key.into()),
+            LinkKeyBinding::Along(key) => LinkKeyKind::Along(key.into()),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
 pub struct UseKey {
-    key: KeyBinding,
+    key: KeyKind,
     key_hold_ticks: u32,
     key_hold_buffered_to_wait_after: bool,
-    link_key: LinkKeyBinding,
+    link_key: LinkKeyKind,
     count: u32,
     current_count: u32,
     direction: ActionKeyDirection,
@@ -107,10 +128,10 @@ impl UseKey {
         let wait_after = random_wait_ticks(wait_after_use_ticks, wait_after_use_ticks_random_range);
 
         Self {
-            key,
+            key: key.into(),
             key_hold_ticks,
             key_hold_buffered_to_wait_after,
-            link_key,
+            link_key: link_key.into(),
             count,
             current_count: 0,
             direction,
@@ -134,10 +155,10 @@ impl UseKey {
         let wait_after = random_wait_ticks(mob.wait_after_ticks, mob.wait_after_ticks_random_range);
 
         Self {
-            key: mob.key,
+            key: mob.key.into(),
             key_hold_ticks: mob.key_hold_ticks,
             key_hold_buffered_to_wait_after: false,
-            link_key: mob.link_key,
+            link_key: mob.link_key.into(),
             count: mob.count,
             current_count: 0,
             direction,
@@ -167,10 +188,10 @@ impl UseKey {
         };
 
         Self {
-            key: ping_pong.key,
+            key: ping_pong.key.into(),
             key_hold_ticks: ping_pong.key_hold_ticks,
             key_hold_buffered_to_wait_after: false,
-            link_key: ping_pong.link_key,
+            link_key: ping_pong.link_key.into(),
             count: ping_pong.count,
             current_count: 0,
             direction,
@@ -189,11 +210,8 @@ impl UseKey {
     }
 
     fn should_buffer_key_holding(&self) -> bool {
-        let has_hold_ticks = self.key_hold_ticks > 0;
-        let has_no_link_key = matches!(self.link_key, LinkKeyBinding::None);
-
-        has_hold_ticks
-            && has_no_link_key
+        self.key_hold_ticks > 0
+            && matches!(self.link_key, LinkKeyKind::None)
             && self.is_last_key_use()
             && self.wait_after_buffered
             && self.key_hold_buffered_to_wait_after
@@ -206,7 +224,7 @@ impl UseKey {
 /// can be transitioned during any of the movement state. Or if there is no position, it will
 /// be transitioned to immediately by [`Player::Idle`].
 ///
-/// There are multiple stages to using a key as described by [`UseKeyStage`].
+/// There are multiple stages to using a key as described by [`State`].
 pub fn update_use_key_state(
     resources: &Resources,
     player: &mut PlayerEntity,
@@ -261,23 +279,7 @@ pub fn update_use_key_state(
             let should_buffer =
                 has_transition && use_key.wait_after_buffered && use_key.is_last_key_use();
 
-            // TODO: Add test
             if should_buffer {
-                assert!(player.context.stalling_timeout_buffered.is_none());
-                assert!(
-                    player
-                        .context
-                        .stalling_timeout_buffered_update_callback
-                        .is_none()
-                );
-                assert!(
-                    player
-                        .context
-                        .stalling_timeout_buffered_end_callback
-                        .is_none()
-                );
-                assert!(player.context.stalling_timeout_state.is_none());
-
                 let should_buffer_holding = use_key.should_buffer_key_holding();
                 let buffer_ticks = if should_buffer_holding {
                     use_key.wait_after_use_ticks + use_key.key_hold_ticks
@@ -288,7 +290,7 @@ pub fn update_use_key_state(
                     Some(BufferedStallingCallback::new(
                         move |resources: &Resources| {
                             resources.input.send_key_down_with_options(
-                                use_key.key.into(),
+                                use_key.key,
                                 InputKeyDownOptions::default().repeatable(),
                             );
                         },
@@ -299,7 +301,7 @@ pub fn update_use_key_state(
                 let end_callback = if should_buffer_holding {
                     Some(BufferedStallingCallback::new(
                         move |resources: &Resources| {
-                            resources.input.send_key_up(use_key.key.into());
+                            resources.input.send_key_up(use_key.key);
                         },
                     ))
                 } else {
@@ -444,8 +446,7 @@ fn update_using(resources: &Resources, context: &PlayerContext, use_key: &mut Us
     };
 
     match use_key.link_key {
-        LinkKeyBinding::After(_) => {
-            // TODO: Add test
+        LinkKeyKind::After(_) => {
             if !using.hold_completed {
                 update_holding_key(resources, use_key);
                 transition_if!(use_key.key_hold_ticks > 0);
@@ -460,14 +461,14 @@ fn update_using(resources: &Resources, context: &PlayerContext, use_key: &mut Us
                 );
             }
         }
-        LinkKeyBinding::AtTheSame(key) => {
-            resources.input.send_key(key.into());
+        LinkKeyKind::AtTheSame(key) => {
+            resources.input.send_key(key);
             if !using.hold_completed {
                 update_holding_key(resources, use_key);
                 transition_if!(use_key.key_hold_ticks > 0);
             }
         }
-        LinkKeyBinding::Along(_) => {
+        LinkKeyKind::Along(_) => {
             if !using.link_completed {
                 return update_linking_key(
                     resources,
@@ -477,8 +478,8 @@ fn update_using(resources: &Resources, context: &PlayerContext, use_key: &mut Us
                 );
             }
         }
-        LinkKeyBinding::Before(_) | LinkKeyBinding::None => {
-            if matches!(use_key.link_key, LinkKeyBinding::Before(_)) && !using.link_completed {
+        LinkKeyKind::Before(_) | LinkKeyKind::None => {
+            if matches!(use_key.link_key, LinkKeyKind::Before(_)) && !using.link_completed {
                 return update_linking_key(
                     resources,
                     use_key,
@@ -564,7 +565,7 @@ fn update_holding_key(resources: &Resources, use_key: &mut UseKey) {
                 ..using
             }),
             {
-                resources.input.send_key(use_key.key.into());
+                resources.input.send_key(use_key.key);
             }
         );
     }
@@ -580,7 +581,7 @@ fn update_holding_key(resources: &Resources, use_key: &mut UseKey) {
                 }),
                 {
                     resources.input.send_key_down_with_options(
-                        use_key.key.into(),
+                        use_key.key,
                         InputKeyDownOptions::default().repeatable(),
                     );
                 }
@@ -594,7 +595,7 @@ fn update_holding_key(resources: &Resources, use_key: &mut UseKey) {
             }),
             {
                 resources.input.send_key_down_with_options(
-                    use_key.key.into(),
+                    use_key.key,
                     InputKeyDownOptions::default().repeatable(),
                 );
             }
@@ -607,7 +608,7 @@ fn update_holding_key(resources: &Resources, use_key: &mut UseKey) {
                     ..using
                 }),
                 {
-                    resources.input.send_key_up(use_key.key.into());
+                    resources.input.send_key_up(use_key.key);
                 }
             );
         }
@@ -625,7 +626,7 @@ fn update_linking_key(
         panic!("use key state is not using");
     };
     let link_key = use_key.link_key;
-    let link_key_timeout = if matches!(link_key, LinkKeyBinding::Along(_)) {
+    let link_key_timeout = if matches!(link_key, LinkKeyKind::Along(_)) {
         4
     } else {
         match class {
@@ -645,14 +646,14 @@ fn update_linking_key(
             }),
             {
                 match link_key {
-                    LinkKeyBinding::Before(key) => {
-                        resources.input.send_key(key.into());
+                    LinkKeyKind::Before(key) => {
+                        resources.input.send_key(key);
                     }
-                    LinkKeyBinding::Along(key) => {
-                        resources.input.send_key_down(key.into());
+                    LinkKeyKind::Along(key) => {
+                        resources.input.send_key_down(key);
                     }
-                    LinkKeyBinding::AtTheSame(_) | LinkKeyBinding::After(_) => (),
-                    LinkKeyBinding::None => panic!("there is no link key"),
+                    LinkKeyKind::AtTheSame(_) | LinkKeyKind::After(_) => (),
+                    LinkKeyKind::None => panic!("there is no link key"),
                 }
             }
         ),
@@ -664,17 +665,17 @@ fn update_linking_key(
             }),
             {
                 match link_key {
-                    LinkKeyBinding::After(key) => {
-                        resources.input.send_key(key.into());
-                        if matches!(class, Class::Blaster) && KeyKind::from(key) != jump_key {
+                    LinkKeyKind::After(key) => {
+                        resources.input.send_key(key);
+                        if matches!(class, Class::Blaster) && key != jump_key {
                             resources.input.send_key(jump_key);
                         }
                     }
-                    LinkKeyBinding::Along(key) => {
-                        resources.input.send_key_up(key.into());
+                    LinkKeyKind::Along(key) => {
+                        resources.input.send_key_up(key);
                     }
-                    LinkKeyBinding::AtTheSame(_) | LinkKeyBinding::Before(_) => (),
-                    LinkKeyBinding::None => panic!("there is no link key"),
+                    LinkKeyKind::AtTheSame(_) | LinkKeyKind::Before(_) => (),
+                    LinkKeyKind::None => panic!("there is no link key"),
                 }
             }
         ),
@@ -686,10 +687,10 @@ fn update_linking_key(
                     ..using
                 }),
                 {
-                    if matches!(link_key, LinkKeyBinding::Along(_))
+                    if matches!(link_key, LinkKeyKind::Along(_))
                         && timeout.total == LINK_ALONG_PRESS_TICK
                     {
-                        resources.input.send_key(use_key.key.into());
+                        resources.input.send_key(use_key.key);
                     }
                 }
             )
@@ -709,12 +710,13 @@ fn random_wait_ticks(wait_base_ticks: u32, wait_random_range: u32) -> u32 {
 mod tests {
     use std::assert_matches::assert_matches;
 
-    use mockall::Sequence;
+    use mockall::{Sequence, predicate::eq};
     use opencv::core::Point;
 
+    use super::LinkKeyKind;
     use crate::{
-        ActionKeyDirection, ActionKeyWith, KeyBinding, LinkKeyBinding,
-        bridge::{KeyKind, MockInput},
+        ActionKeyDirection, ActionKeyWith,
+        bridge::{InputKeyDownOptions, KeyKind, MockInput},
         ecs::Resources,
         minimap::Minimap,
         player::{
@@ -735,10 +737,10 @@ mod tests {
     fn update_use_key_state_ensuring_use_with_stationary() {
         let resources = Resources::new(None, None);
         let mut player = make_player(UseKey {
-            key: KeyBinding::A,
+            key: KeyKind::A,
             key_hold_ticks: 0,
             key_hold_buffered_to_wait_after: false,
-            link_key: LinkKeyBinding::None,
+            link_key: LinkKeyKind::None,
             count: 1,
             current_count: 0,
             direction: ActionKeyDirection::Any,
@@ -777,10 +779,10 @@ mod tests {
     fn update_use_key_state_ensuring_use_with_double_jump() {
         let resources = Resources::new(None, None);
         let mut player = make_player(UseKey {
-            key: KeyBinding::A,
+            key: KeyKind::A,
             key_hold_ticks: 0,
             key_hold_buffered_to_wait_after: false,
-            link_key: LinkKeyBinding::None,
+            link_key: LinkKeyKind::None,
             count: 1,
             current_count: 0,
             direction: ActionKeyDirection::Any,
@@ -823,10 +825,10 @@ mod tests {
             .once();
         let resources = Resources::new(Some(keys), None);
         let mut use_key = UseKey {
-            key: KeyBinding::A,
+            key: KeyKind::A,
             key_hold_ticks: 0,
             key_hold_buffered_to_wait_after: false,
-            link_key: LinkKeyBinding::None,
+            link_key: LinkKeyKind::None,
             count: 1,
             current_count: 0,
             direction: ActionKeyDirection::Left,
@@ -889,10 +891,10 @@ mod tests {
             .withf(|k| matches!(k, KeyKind::A));
         let resources = Resources::new(Some(keys), None);
         let use_key = UseKey {
-            key: KeyBinding::A,
+            key: KeyKind::A,
             key_hold_ticks: 0,
             key_hold_buffered_to_wait_after: false,
-            link_key: LinkKeyBinding::None,
+            link_key: LinkKeyKind::None,
             count: 3,
             current_count: 0,
             direction: ActionKeyDirection::Any,
@@ -944,10 +946,10 @@ mod tests {
     fn update_use_key_state_waits_before() {
         let resources = Resources::new(None, None);
         let use_key = UseKey {
-            key: KeyBinding::A,
+            key: KeyKind::A,
             key_hold_ticks: 0,
             key_hold_buffered_to_wait_after: false,
-            link_key: LinkKeyBinding::None,
+            link_key: LinkKeyKind::None,
             count: 1,
             current_count: 0,
             direction: ActionKeyDirection::Any,
@@ -982,10 +984,10 @@ mod tests {
             .once();
         let resources = Resources::new(Some(keys), None);
         let use_key = UseKey {
-            key: KeyBinding::A,
+            key: KeyKind::A,
             key_hold_ticks: 0,
             key_hold_buffered_to_wait_after: false,
-            link_key: LinkKeyBinding::None,
+            link_key: LinkKeyKind::None,
             count: 1,
             current_count: 0,
             direction: ActionKeyDirection::Any,
@@ -1030,10 +1032,10 @@ mod tests {
             .in_sequence(&mut sequence);
         let resources = Resources::new(Some(keys), None);
         let mut use_key = UseKey {
-            key: KeyBinding::A,
+            key: KeyKind::A,
             key_hold_ticks: 0,
             key_hold_buffered_to_wait_after: false,
-            link_key: LinkKeyBinding::Along(KeyBinding::Alt),
+            link_key: LinkKeyKind::Along(KeyKind::Alt),
             count: 1,
             current_count: 0,
             direction: ActionKeyDirection::Any,
@@ -1120,10 +1122,10 @@ mod tests {
         let resources = Resources::new(Some(keys), None);
 
         let mut use_key = UseKey {
-            key: KeyBinding::A,
+            key: KeyKind::A,
             key_hold_ticks: 0,
             key_hold_buffered_to_wait_after: false,
-            link_key: LinkKeyBinding::Before(KeyBinding::Alt),
+            link_key: LinkKeyKind::Before(KeyKind::Alt),
             count: 1,
             current_count: 0,
             direction: ActionKeyDirection::Any,
@@ -1175,10 +1177,10 @@ mod tests {
         let resources = Resources::new(Some(keys), None);
 
         let mut use_key = UseKey {
-            key: KeyBinding::A,
+            key: KeyKind::A,
             key_hold_ticks: 0,
             key_hold_buffered_to_wait_after: false,
-            link_key: LinkKeyBinding::After(KeyBinding::Alt),
+            link_key: LinkKeyKind::After(KeyKind::Alt),
             count: 1,
             current_count: 0,
             direction: ActionKeyDirection::Any,
@@ -1235,10 +1237,10 @@ mod tests {
         let resources = Resources::new(Some(keys), None);
 
         let use_key = UseKey {
-            key: KeyBinding::A,
+            key: KeyKind::A,
             key_hold_ticks: 0,
             key_hold_buffered_to_wait_after: false,
-            link_key: LinkKeyBinding::AtTheSame(KeyBinding::Alt),
+            link_key: LinkKeyKind::AtTheSame(KeyKind::Alt),
             count: 1,
             current_count: 0,
             direction: ActionKeyDirection::Any,
@@ -1260,6 +1262,206 @@ mod tests {
                 state: State::Postcondition,
                 ..
             })
+        );
+    }
+
+    #[test]
+    fn update_use_key_state_hold_key() {
+        let mut sequence = Sequence::new();
+        let mut keys = MockInput::new();
+        keys.expect_send_key_down_with_options()
+            .with(
+                eq(KeyKind::A),
+                eq(InputKeyDownOptions::default().repeatable()),
+            )
+            .times(4)
+            .in_sequence(&mut sequence);
+        keys.expect_send_key_up()
+            .with(eq(KeyKind::A))
+            .times(1)
+            .in_sequence(&mut sequence);
+
+        let resources = Resources::new(Some(keys), None);
+        let use_key = UseKey {
+            key: KeyKind::A,
+            key_hold_ticks: 3,
+            key_hold_buffered_to_wait_after: false,
+            link_key: LinkKeyKind::None,
+            count: 1,
+            current_count: 0,
+            direction: ActionKeyDirection::Any,
+            with: ActionKeyWith::Any,
+            wait_before_use_ticks: 0,
+            wait_after_use_ticks: 0,
+            wait_after_buffered: false,
+            pending_transition: PendingTransition::None,
+            action_info: None,
+            state: State::Using(Using::default()),
+        };
+
+        let mut player = make_player(use_key);
+
+        for _ in 0..4 {
+            update_use_key_state(&resources, &mut player, Minimap::Detecting);
+        }
+        update_use_key_state(&resources, &mut player, Minimap::Detecting);
+    }
+
+    #[test]
+    fn update_use_key_state_buffer_hold_key() {
+        let mut sequence = Sequence::new();
+        let mut keys = MockInput::new();
+
+        keys.expect_send_key_down_with_options()
+            .with(
+                eq(KeyKind::A),
+                eq(InputKeyDownOptions::default().repeatable()),
+            )
+            .times(1)
+            .in_sequence(&mut sequence);
+
+        let resources = Resources::new(Some(keys), None);
+        let use_key = UseKey {
+            key: KeyKind::A,
+            key_hold_ticks: 2,
+            key_hold_buffered_to_wait_after: true,
+            link_key: LinkKeyKind::None,
+            count: 1,
+            current_count: 0,
+            direction: ActionKeyDirection::Any,
+            with: ActionKeyWith::Any,
+            wait_before_use_ticks: 0,
+            wait_after_use_ticks: 4,
+            wait_after_buffered: true,
+            pending_transition: PendingTransition::None,
+            action_info: None,
+            state: State::Using(Using::default()),
+        };
+
+        let mut player = make_player(use_key);
+
+        update_use_key_state(&resources, &mut player, Minimap::Detecting);
+        assert_matches!(
+            player.state,
+            Player::UseKey(UseKey {
+                state: State::Using(Using {
+                    hold_completed: true,
+                    ..
+                }),
+                ..
+            })
+        );
+
+        update_use_key_state(&resources, &mut player, Minimap::Detecting);
+        assert_matches!(player.context.stalling_timeout_buffered, Some((_, 6)));
+        assert!(
+            player
+                .context
+                .stalling_timeout_buffered_update_callback
+                .is_some()
+        );
+        assert!(
+            player
+                .context
+                .stalling_timeout_buffered_end_callback
+                .is_some()
+        );
+    }
+
+    #[test]
+    fn update_use_key_state_only_last_use_buffers_wait_after() {
+        let mut sequence = Sequence::new();
+        let mut keys = MockInput::new();
+
+        // First usage
+        keys.expect_send_key_down_with_options()
+            .with(
+                eq(KeyKind::A),
+                eq(InputKeyDownOptions::default().repeatable()),
+            )
+            .times(2)
+            .in_sequence(&mut sequence);
+        keys.expect_send_key_up()
+            .with(eq(KeyKind::A))
+            .times(1)
+            .in_sequence(&mut sequence);
+
+        // Second usage
+        keys.expect_send_key_down_with_options()
+            .with(
+                eq(KeyKind::A),
+                eq(InputKeyDownOptions::default().repeatable()),
+            )
+            .times(1)
+            .in_sequence(&mut sequence);
+
+        let resources = Resources::new(Some(keys), None);
+        let use_key = UseKey {
+            key: KeyKind::A,
+            count: 2,
+            current_count: 0,
+            key_hold_ticks: 1,
+            key_hold_buffered_to_wait_after: true,
+
+            wait_before_use_ticks: 0,
+            wait_after_use_ticks: 5,
+            wait_after_buffered: true,
+
+            direction: ActionKeyDirection::Any,
+            with: ActionKeyWith::Any,
+            link_key: LinkKeyKind::None,
+
+            pending_transition: PendingTransition::None,
+            action_info: None,
+            state: State::Using(Using::default()),
+        };
+
+        let mut player = make_player(use_key);
+
+        update_use_key_state(&resources, &mut player, Minimap::Detecting); // hold
+        update_use_key_state(&resources, &mut player, Minimap::Detecting); // hold 
+        update_use_key_state(&resources, &mut player, Minimap::Detecting); // release
+        update_use_key_state(&resources, &mut player, Minimap::Detecting); // postcondition
+        assert!(player.context.stalling_timeout_buffered.is_none());
+        assert!(
+            player
+                .context
+                .stalling_timeout_buffered_update_callback
+                .is_none()
+        );
+        assert!(
+            player
+                .context
+                .stalling_timeout_buffered_end_callback
+                .is_none()
+        );
+        assert_matches!(
+            player.context.stalling_timeout_state,
+            Some(Player::UseKey(UseKey {
+                state: State::Postcondition,
+                ..
+            }))
+        );
+
+        let mut player = make_player(UseKey {
+            current_count: 1,
+            state: State::Using(Using::default()),
+            ..use_key
+        });
+        update_use_key_state(&resources, &mut player, Minimap::Detecting); // hold
+        update_use_key_state(&resources, &mut player, Minimap::Detecting); // buffer
+        assert!(player.context.stalling_timeout_buffered.is_some());
+        assert!(
+            player
+                .context
+                .stalling_timeout_buffered_update_callback
+                .is_some()
+        );
+        assert!(
+            player
+                .context
+                .stalling_timeout_buffered_end_callback
+                .is_some()
         );
     }
 }
