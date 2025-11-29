@@ -1,7 +1,7 @@
 use std::{collections::HashMap, range::Range};
 
 use anyhow::Result;
-use log::debug;
+use log::{debug, info};
 use opencv::core::{Point, Rect};
 
 use super::{
@@ -1348,6 +1348,7 @@ impl PlayerContext {
                 Lifecycle::Ended => {
                     if matches!(buffs[BuffKind::Rune].state, Buff::No) {
                         self.track_rune_fail_count();
+                        info!(target: "rune", "failed to solve {} time(s)", self.rune_failed_count);
                     } else {
                         self.rune_failed_count = 0;
                         #[cfg(debug_assertions)]
