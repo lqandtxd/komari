@@ -20,7 +20,7 @@ use platforms::{
 };
 
 use crate::{
-    CaptureMode, KeyBinding,
+    models::{CaptureMode, KeyBinding, LinkKeyBinding},
     rng::Rng,
     rpc::{
         Coordinate as RpcCoordinate, InputService, Key as RpcKeyKind, KeyState as RpcKeyState,
@@ -103,7 +103,9 @@ impl From<MouseKind> for PlatformMouseKind {
 ///
 /// This is a bridge enum between platform-specific, gRPC and database.
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
+#[cfg_attr(test, derive(Default))]
 pub enum KeyKind {
+    #[cfg_attr(test, default)]
     A,
     B,
     C,
@@ -567,6 +569,28 @@ impl From<KeyKind> for KeyBinding {
             KeyKind::Ctrl => KeyBinding::Ctrl,
             KeyKind::Alt => KeyBinding::Alt,
             KeyKind::Backspace => KeyBinding::Backspace,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default)]
+pub enum LinkKeyKind {
+    #[default]
+    None,
+    Before(KeyKind),
+    AtTheSame(KeyKind),
+    After(KeyKind),
+    Along(KeyKind),
+}
+
+impl From<LinkKeyBinding> for LinkKeyKind {
+    fn from(value: LinkKeyBinding) -> Self {
+        match value {
+            LinkKeyBinding::None => LinkKeyKind::None,
+            LinkKeyBinding::Before(key) => LinkKeyKind::Before(key.into()),
+            LinkKeyBinding::AtTheSame(key) => LinkKeyKind::AtTheSame(key.into()),
+            LinkKeyBinding::After(key) => LinkKeyKind::After(key.into()),
+            LinkKeyBinding::Along(key) => LinkKeyKind::Along(key.into()),
         }
     }
 }

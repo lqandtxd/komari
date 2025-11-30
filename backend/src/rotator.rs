@@ -17,14 +17,18 @@ use opencv::core::{Point, Rect};
 use ordered_hash_map::OrderedHashMap;
 
 use crate::{
-    ActionKeyDirection, ActionKeyWith, Bound, ExchangeHexaBoosterCondition, Familiars, KeyBinding,
-    LinkKeyBinding, MobbingKey, Position, WaitAfterBuffered,
+    Bound,
     array::Array,
+    bridge::{KeyKind, LinkKeyKind},
     buff::{Buff, BuffKind},
     detect::{Detector, QuickSlotsHexaBooster, SolErda},
     ecs::{Resources, World},
     minimap::Minimap,
-    models::{Action, ActionCondition, ActionKey, ActionMove, EliteBossBehavior},
+    models::{
+        Action, ActionCondition, ActionKey, ActionKeyDirection, ActionKeyWith, ActionMove,
+        EliteBossBehavior, ExchangeHexaBoosterCondition, Familiars, MobbingKey, Position,
+        WaitAfterBuffered,
+    },
     player::{
         AutoMob, Booster, ExchangeBooster, FamiliarsSwap, GRAPPLING_THRESHOLD, Key, Panic, PanicTo,
         PingPong, PingPongDirection, PlayerAction, PlayerContext, PlayerEntity, Quadrant,
@@ -139,11 +143,11 @@ pub enum RotatorMode {
 pub struct RotatorBuildArgs<'a> {
     pub mode: RotatorMode,
     pub actions: &'a [Action],
-    pub buffs: &'a [(BuffKind, KeyBinding)],
+    pub buffs: &'a [(BuffKind, KeyKind)],
     pub familiars: Familiars,
-    pub familiar_essence_key: KeyBinding,
+    pub familiar_essence_key: KeyKind,
     pub elite_boss_behavior: EliteBossBehavior,
-    pub elite_boss_behavior_key: KeyBinding,
+    pub elite_boss_behavior_key: KeyKind,
     pub hexa_booster_exchange_condition: ExchangeHexaBoosterCondition,
     pub hexa_booster_exchange_amount: u32,
     pub hexa_booster_exchange_all: bool,
@@ -642,9 +646,9 @@ impl DefaultRotator {
         player_context.set_normal_action(
             None,
             PlayerAction::AutoMob(AutoMob {
-                key: key.key,
+                key: key.key.into(),
                 key_hold_ticks,
-                link_key: key.link_key,
+                link_key: key.link_key.into(),
                 count: key.count.max(1),
                 with: key.with,
                 wait_before_ticks,
@@ -693,9 +697,9 @@ impl DefaultRotator {
         player_context.set_normal_action(
             None,
             PlayerAction::PingPong(PingPong {
-                key: key.key,
+                key: key.key.into(),
                 key_hold_ticks: (key.key_hold_millis / MS_PER_TICK) as u32,
-                link_key: key.link_key,
+                link_key: key.link_key.into(),
                 count: key.count.max(1),
                 with: key.with,
                 wait_before_ticks: (key.wait_before_millis / MS_PER_TICK) as u32,
@@ -1098,7 +1102,7 @@ fn priority_action(
 /// If the essence is not depleted, the action will be marked as [`ConditionResult::Ignore`]
 /// and temporarily ignored in subsequent queue do to `last_queued_time` being updated.
 #[inline]
-fn familiar_essence_replenish_priority_action(key: KeyBinding) -> PriorityAction {
+fn familiar_essence_replenish_priority_action(key: KeyKind) -> PriorityAction {
     let mut task: Option<Task<Result<bool>>> = None;
     let task_fn = move |detector: Arc<dyn Detector>| -> Result<bool> {
         Ok(detector.detect_familiar_essence_depleted())
@@ -1126,7 +1130,7 @@ fn familiar_essence_replenish_priority_action(key: KeyBinding) -> PriorityAction
             key,
             key_hold_ticks: 0,
             key_hold_buffered_to_wait_after: false,
-            link_key: LinkKeyBinding::None,
+            link_key: LinkKeyKind::None,
             count: 1,
             position: None,
             direction: ActionKeyDirection::Any,
@@ -1212,7 +1216,7 @@ fn solve_rune_priority_action() -> PriorityAction {
 /// - The minimap is in the [`Minimap::Idle`] state.
 /// - The specified buff is currently missing.
 #[inline]
-fn buff_priority_action(buff: BuffKind, key: KeyBinding) -> PriorityAction {
+fn buff_priority_action(buff: BuffKind, key: KeyKind) -> PriorityAction {
     macro_rules! skip_if_has_buff {
         ($world:expr, $variant:ident $(| $variants:ident)*) => {{
             $(
@@ -1271,7 +1275,7 @@ fn buff_priority_action(buff: BuffKind, key: KeyBinding) -> PriorityAction {
             key,
             key_hold_ticks: 0,
             key_hold_buffered_to_wait_after: false,
-            link_key: LinkKeyBinding::None,
+            link_key: LinkKeyKind::None,
             count: 1,
             position: None,
             direction: ActionKeyDirection::Any,
@@ -1342,7 +1346,7 @@ fn elite_boss_change_channel_priority_action() -> PriorityAction {
 }
 
 #[inline]
-fn elite_boss_use_key_priority_action(key: KeyBinding) -> PriorityAction {
+fn elite_boss_use_key_priority_action(key: KeyKind) -> PriorityAction {
     PriorityAction {
         condition: Condition(Box::new(|_, world, info| {
             if !at_least_millis_passed_since(info.last_queued_time, 15000) {
@@ -1362,7 +1366,7 @@ fn elite_boss_use_key_priority_action(key: KeyBinding) -> PriorityAction {
             key,
             key_hold_ticks: 0,
             key_hold_buffered_to_wait_after: false,
-            link_key: LinkKeyBinding::None,
+            link_key: LinkKeyKind::None,
             count: 1,
             position: None,
             direction: ActionKeyDirection::Any,
@@ -1680,15 +1684,15 @@ mod tests {
     fn rotator_build_actions() {
         let mut rotator = DefaultRotator::default();
         let actions = vec![NORMAL_ACTION, NORMAL_ACTION, PRIORITY_ACTION];
-        let buffs = vec![(BuffKind::Rune, KeyBinding::default()); 4];
+        let buffs = vec![(BuffKind::Rune, KeyKind::A); 4];
         let args = RotatorBuildArgs {
             mode: RotatorMode::default(),
             actions: &actions,
             buffs: &buffs,
             familiars: Familiars::default(),
-            familiar_essence_key: KeyBinding::default(),
+            familiar_essence_key: KeyKind::A,
             elite_boss_behavior: EliteBossBehavior::CycleChannel,
-            elite_boss_behavior_key: KeyBinding::default(),
+            elite_boss_behavior_key: KeyKind::A,
             hexa_booster_exchange_condition: ExchangeHexaBoosterCondition::None,
             hexa_booster_exchange_amount: 1,
             hexa_booster_exchange_all: false,
@@ -2151,7 +2155,7 @@ mod tests {
         let mut world = mock_world();
         world.minimap.state = Minimap::Idle(idle);
 
-        let mut action = elite_boss_use_key_priority_action(KeyBinding::default());
+        let mut action = elite_boss_use_key_priority_action(KeyKind::A);
         let info = PriorityActionQueueInfo::default();
 
         queue_or_timeout(|| (action.condition.0)(&resources, &world, &info)).await;

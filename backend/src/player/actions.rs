@@ -6,12 +6,12 @@ use strum::Display;
 use super::{Player, PlayerContext, use_key::UseKey};
 use crate::{
     array::Array,
-    bridge::KeyKind,
+    bridge::{KeyKind, LinkKeyKind},
     ecs::Resources,
     minimap::Minimap,
     models::{
-        Action, ActionKey, ActionKeyDirection, ActionKeyWith, ActionMove, FamiliarRarity,
-        KeyBinding, LinkKeyBinding, Position, SwappableFamiliars, WaitAfterBuffered,
+        Action, ActionKey, ActionKeyDirection, ActionKeyWith, ActionMove, FamiliarRarity, Position,
+        SwappableFamiliars, WaitAfterBuffered,
     },
     player::PlayerEntity,
     run::MS_PER_TICK,
@@ -29,10 +29,10 @@ pub const AUTO_MOB_USE_KEY_Y_THRESHOLD: i32 = 8;
 /// Converted from [`ActionKey`] without fields used by [`Rotator`]
 #[derive(Clone, Copy, Debug)]
 pub struct Key {
-    pub key: KeyBinding,
+    pub key: KeyKind,
     pub key_hold_ticks: u32,
     pub key_hold_buffered_to_wait_after: bool,
-    pub link_key: LinkKeyBinding,
+    pub link_key: LinkKeyKind,
     pub count: u32,
     pub position: Option<Position>,
     pub direction: ActionKeyDirection,
@@ -73,10 +73,10 @@ impl From<ActionKey> for Key {
             (wait_after_use_millis_random_range / MS_PER_TICK) as u32;
 
         Self {
-            key,
+            key: key.into(),
             key_hold_ticks,
             key_hold_buffered_to_wait_after,
-            link_key,
+            link_key: link_key.into(),
             count,
             position,
             direction,
@@ -117,9 +117,9 @@ impl From<ActionMove> for Move {
 #[derive(Clone, Copy, Debug)]
 #[cfg_attr(test, derive(Default))]
 pub struct AutoMob {
-    pub key: KeyBinding,
+    pub key: KeyKind,
     pub key_hold_ticks: u32,
-    pub link_key: LinkKeyBinding,
+    pub link_key: LinkKeyKind,
     pub count: u32,
     pub with: ActionKeyWith,
     pub wait_before_ticks: u32,
@@ -146,9 +146,9 @@ impl fmt::Display for AutoMob {
 #[derive(Clone, Copy, Debug)]
 #[cfg_attr(test, derive(Default))]
 pub struct PingPong {
-    pub key: KeyBinding,
+    pub key: KeyKind,
     pub key_hold_ticks: u32,
-    pub link_key: LinkKeyBinding,
+    pub link_key: LinkKeyKind,
     pub count: u32,
     pub with: ActionKeyWith,
     pub wait_before_ticks: u32,

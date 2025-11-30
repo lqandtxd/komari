@@ -4,6 +4,7 @@ use std::fmt::Debug;
 use mockall::{automock, concretize};
 use strum::IntoEnumIterator;
 
+use crate::bridge::KeyKind;
 use crate::rotator::Rotator;
 use crate::{
     Action, Character, KeyBinding, Minimap, RotationMode, RotatorMode, Settings, buff::BuffKind,
@@ -43,7 +44,7 @@ pub trait RotatorService: Debug {
 #[derive(Debug, Default)]
 pub struct DefaultRotatorService {
     actions: Vec<Action>,
-    buffs: Vec<(BuffKind, KeyBinding)>,
+    buffs: Vec<(BuffKind, KeyKind)>,
 }
 
 impl RotatorService for DefaultRotatorService {
@@ -110,9 +111,9 @@ impl RotatorService for DefaultRotatorService {
             actions: &self.actions,
             buffs: &self.buffs,
             familiars,
-            familiar_essence_key,
+            familiar_essence_key: familiar_essence_key.into(),
             elite_boss_behavior,
-            elite_boss_behavior_key,
+            elite_boss_behavior_key: elite_boss_behavior_key.into(),
             hexa_booster_exchange_condition,
             hexa_booster_exchange_amount,
             hexa_booster_exchange_all,
@@ -193,7 +194,7 @@ fn actions_from(character: &Character) -> Vec<Action> {
     vec
 }
 
-fn buffs_from(character: &Character) -> Vec<(BuffKind, KeyBinding)> {
+fn buffs_from(character: &Character) -> Vec<(BuffKind, KeyKind)> {
     BuffKind::iter()
         .filter_map(|kind| {
             let enabled_key = match kind {
@@ -201,79 +202,79 @@ fn buffs_from(character: &Character) -> Vec<(BuffKind, KeyBinding)> {
                 BuffKind::Familiar => character
                     .familiar_buff_key
                     .enabled
-                    .then_some(character.familiar_buff_key.key),
+                    .then_some(character.familiar_buff_key.key.into()),
                 BuffKind::SayramElixir => character
                     .sayram_elixir_key
                     .enabled
-                    .then_some(character.sayram_elixir_key.key),
+                    .then_some(character.sayram_elixir_key.key.into()),
                 BuffKind::AureliaElixir => character
                     .aurelia_elixir_key
                     .enabled
-                    .then_some(character.aurelia_elixir_key.key),
+                    .then_some(character.aurelia_elixir_key.key.into()),
                 BuffKind::ExpCouponX2 => character
                     .exp_x2_key
                     .enabled
-                    .then_some(character.exp_x2_key.key),
+                    .then_some(character.exp_x2_key.key.into()),
                 BuffKind::ExpCouponX3 => character
                     .exp_x3_key
                     .enabled
-                    .then_some(character.exp_x3_key.key),
+                    .then_some(character.exp_x3_key.key.into()),
                 BuffKind::ExpCouponX4 => character
                     .exp_x4_key
                     .enabled
-                    .then_some(character.exp_x4_key.key),
+                    .then_some(character.exp_x4_key.key.into()),
                 BuffKind::BonusExpCoupon => character
                     .bonus_exp_key
                     .enabled
-                    .then_some(character.bonus_exp_key.key),
+                    .then_some(character.bonus_exp_key.key.into()),
                 BuffKind::LegionLuck => character
                     .legion_luck_key
                     .enabled
-                    .then_some(character.legion_luck_key.key),
+                    .then_some(character.legion_luck_key.key.into()),
                 BuffKind::LegionWealth => character
                     .legion_wealth_key
                     .enabled
-                    .then_some(character.legion_wealth_key.key),
+                    .then_some(character.legion_wealth_key.key.into()),
                 BuffKind::WealthAcquisitionPotion => character
                     .wealth_acquisition_potion_key
                     .enabled
-                    .then_some(character.wealth_acquisition_potion_key.key),
+                    .then_some(character.wealth_acquisition_potion_key.key.into()),
                 BuffKind::ExpAccumulationPotion => character
                     .exp_accumulation_potion_key
                     .enabled
-                    .then_some(character.exp_accumulation_potion_key.key),
+                    .then_some(character.exp_accumulation_potion_key.key.into()),
                 BuffKind::SmallWealthAcquisitionPotion => character
                     .small_wealth_acquisition_potion_key
                     .enabled
-                    .then_some(character.small_wealth_acquisition_potion_key.key),
+                    .then_some(character.small_wealth_acquisition_potion_key.key.into()),
                 BuffKind::SmallExpAccumulationPotion => character
                     .small_exp_accumulation_potion_key
                     .enabled
-                    .then_some(character.small_exp_accumulation_potion_key.key),
+                    .then_some(character.small_exp_accumulation_potion_key.key.into()),
                 BuffKind::ForTheGuild => character
                     .for_the_guild_key
                     .enabled
-                    .then_some(character.for_the_guild_key.key),
+                    .then_some(character.for_the_guild_key.key.into()),
                 BuffKind::HardHitter => character
                     .hard_hitter_key
                     .enabled
-                    .then_some(character.hard_hitter_key.key),
+                    .then_some(character.hard_hitter_key.key.into()),
                 BuffKind::ExtremeRedPotion => character
                     .extreme_red_potion_key
                     .enabled
-                    .then_some(character.extreme_red_potion_key.key),
+                    .then_some(character.extreme_red_potion_key.key.into()),
                 BuffKind::ExtremeBluePotion => character
                     .extreme_blue_potion_key
                     .enabled
-                    .then_some(character.extreme_blue_potion_key.key),
+                    .then_some(character.extreme_blue_potion_key.key.into()),
                 BuffKind::ExtremeGreenPotion => character
                     .extreme_green_potion_key
                     .enabled
-                    .then_some(character.extreme_green_potion_key.key),
+                    .then_some(character.extreme_green_potion_key.key.into()),
                 BuffKind::ExtremeGoldPotion => character
                     .extreme_gold_potion_key
                     .enabled
-                    .then_some(character.extreme_gold_potion_key.key),
+                    .then_some(character.extreme_gold_potion_key.key.into()),
             };
             Some(kind).zip(enabled_key)
         })
@@ -361,7 +362,7 @@ mod tests {
 
     #[test]
     fn update_with_buffs() {
-        let buffs = vec![(BuffKind::SayramElixir, KeyBinding::F1)];
+        let buffs = vec![(BuffKind::SayramElixir, KeyKind::F1)];
 
         let buffs_clone = buffs.clone();
         let mut rotator = MockRotator::new();
@@ -391,7 +392,7 @@ mod tests {
         let mut rotator = MockRotator::new();
         rotator
             .expect_build_actions()
-            .withf(|args| args.familiar_essence_key == KeyBinding::Z)
+            .withf(|args| args.familiar_essence_key == KeyKind::Z)
             .once()
             .return_const(());
 
@@ -433,7 +434,7 @@ mod tests {
             .expect_build_actions()
             .withf(|args| {
                 args.elite_boss_behavior == EliteBossBehavior::CycleChannel
-                    && args.elite_boss_behavior_key == KeyBinding::X
+                    && args.elite_boss_behavior_key == KeyKind::X
             })
             .once()
             .return_const(());

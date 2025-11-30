@@ -15,9 +15,8 @@ use tokio::{
 
 use crate::{
     ActionKeyDirection, ActionKeyWith, Character, GameState, GameTemplate, KeyBinding,
-    LinkKeyBinding, Localization, Minimap, NavigationPath, RequestHandler, RotateKind, Settings,
-    WaitAfterBuffered,
-    bridge::{Capture, DefaultInputReceiver, Input},
+    Localization, Minimap, NavigationPath, RequestHandler, RotateKind, Settings, WaitAfterBuffered,
+    bridge::{Capture, DefaultInputReceiver, Input, KeyKind, LinkKeyKind},
     control::{BotAction, BotCommandKind},
     detect::to_base64_from_mat,
     ecs::{Resources, World, WorldEvent},
@@ -334,10 +333,10 @@ impl DefaultRequestHandler<'_> {
                     // Emulate these actions through keys instead to avoid requiring position
                     let player_action = match action {
                         BotAction::Jump => PlayerAction::Key(Key {
-                            key: self.world.player.context.config.jump_key.into(),
+                            key: self.world.player.context.config.jump_key,
                             key_hold_ticks: 0,
                             key_hold_buffered_to_wait_after: false,
-                            link_key: LinkKeyBinding::None,
+                            link_key: LinkKeyKind::None,
                             count,
                             position: None,
                             direction: ActionKeyDirection::Any, // Must always be Any
@@ -350,11 +349,11 @@ impl DefaultRequestHandler<'_> {
                         }),
                         BotAction::DoubleJump => {
                             PlayerAction::Key(Key {
-                                key: self.world.player.context.config.jump_key.into(),
+                                key: self.world.player.context.config.jump_key,
                                 key_hold_ticks: 0,
                                 key_hold_buffered_to_wait_after: false,
-                                link_key: LinkKeyBinding::Before(
-                                    self.world.player.context.config.jump_key.into(),
+                                link_key: LinkKeyKind::Before(
+                                    self.world.player.context.config.jump_key,
                                 ),
                                 count,
                                 position: None,
@@ -369,10 +368,10 @@ impl DefaultRequestHandler<'_> {
                         }
                         BotAction::Crouch => {
                             PlayerAction::Key(Key {
-                                key: KeyBinding::Down,
+                                key: KeyKind::Down,
                                 key_hold_ticks: 4,
                                 key_hold_buffered_to_wait_after: false,
-                                link_key: LinkKeyBinding::None,
+                                link_key: LinkKeyKind::None,
                                 count,
                                 position: None,
                                 direction: ActionKeyDirection::Any, // Must always be Any

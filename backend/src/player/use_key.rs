@@ -7,8 +7,8 @@ use super::{
     timeout::{Lifecycle, next_timeout_lifecycle},
 };
 use crate::{
-    ActionKeyDirection, ActionKeyWith, Class, LinkKeyBinding, Position, WaitAfterBuffered,
-    bridge::{InputKeyDownOptions, KeyKind},
+    ActionKeyDirection, ActionKeyWith, Class, Position, WaitAfterBuffered,
+    bridge::{InputKeyDownOptions, KeyKind, LinkKeyKind},
     ecs::Resources,
     minimap::Minimap,
     player::{
@@ -68,27 +68,6 @@ enum PendingTransition {
 }
 
 #[derive(Clone, Copy, Debug)]
-enum LinkKeyKind {
-    None,
-    Before(KeyKind),
-    AtTheSame(KeyKind),
-    After(KeyKind),
-    Along(KeyKind),
-}
-
-impl From<LinkKeyBinding> for LinkKeyKind {
-    fn from(value: LinkKeyBinding) -> Self {
-        match value {
-            LinkKeyBinding::None => LinkKeyKind::None,
-            LinkKeyBinding::Before(key) => LinkKeyKind::Before(key.into()),
-            LinkKeyBinding::AtTheSame(key) => LinkKeyKind::AtTheSame(key.into()),
-            LinkKeyBinding::After(key) => LinkKeyKind::After(key.into()),
-            LinkKeyBinding::Along(key) => LinkKeyKind::Along(key.into()),
-        }
-    }
-}
-
-#[derive(Clone, Copy, Debug)]
 pub struct UseKey {
     key: KeyKind,
     key_hold_ticks: u32,
@@ -128,10 +107,10 @@ impl UseKey {
         let wait_after = random_wait_ticks(wait_after_use_ticks, wait_after_use_ticks_random_range);
 
         Self {
-            key: key.into(),
+            key,
             key_hold_ticks,
             key_hold_buffered_to_wait_after,
-            link_key: link_key.into(),
+            link_key,
             count,
             current_count: 0,
             direction,
@@ -155,10 +134,10 @@ impl UseKey {
         let wait_after = random_wait_ticks(mob.wait_after_ticks, mob.wait_after_ticks_random_range);
 
         Self {
-            key: mob.key.into(),
+            key: mob.key,
             key_hold_ticks: mob.key_hold_ticks,
             key_hold_buffered_to_wait_after: false,
-            link_key: mob.link_key.into(),
+            link_key: mob.link_key,
             count: mob.count,
             current_count: 0,
             direction,
@@ -188,10 +167,10 @@ impl UseKey {
         };
 
         Self {
-            key: ping_pong.key.into(),
+            key: ping_pong.key,
             key_hold_ticks: ping_pong.key_hold_ticks,
             key_hold_buffered_to_wait_after: false,
-            link_key: ping_pong.link_key.into(),
+            link_key: ping_pong.link_key,
             count: ping_pong.count,
             current_count: 0,
             direction,
