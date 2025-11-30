@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use strum::{Display, EnumIter, EnumString};
 
-use crate::bridge::KeyKind;
+use crate::{ActionKeyWith, models::deserialize_with_ok_or_default};
 
 #[derive(Clone, Copy, Default, PartialEq, Debug, Serialize, Deserialize)]
 pub struct KeyBindingConfiguration {
@@ -121,81 +121,38 @@ impl LinkKeyBinding {
     }
 }
 
-// TODO: Move to bridge.rs
-impl From<KeyKind> for KeyBinding {
-    fn from(value: KeyKind) -> Self {
-        match value {
-            KeyKind::A => KeyBinding::A,
-            KeyKind::B => KeyBinding::B,
-            KeyKind::C => KeyBinding::C,
-            KeyKind::D => KeyBinding::D,
-            KeyKind::E => KeyBinding::E,
-            KeyKind::F => KeyBinding::F,
-            KeyKind::G => KeyBinding::G,
-            KeyKind::H => KeyBinding::H,
-            KeyKind::I => KeyBinding::I,
-            KeyKind::J => KeyBinding::J,
-            KeyKind::K => KeyBinding::K,
-            KeyKind::L => KeyBinding::L,
-            KeyKind::M => KeyBinding::M,
-            KeyKind::N => KeyBinding::N,
-            KeyKind::O => KeyBinding::O,
-            KeyKind::P => KeyBinding::P,
-            KeyKind::Q => KeyBinding::Q,
-            KeyKind::R => KeyBinding::R,
-            KeyKind::S => KeyBinding::S,
-            KeyKind::T => KeyBinding::T,
-            KeyKind::U => KeyBinding::U,
-            KeyKind::V => KeyBinding::V,
-            KeyKind::W => KeyBinding::W,
-            KeyKind::X => KeyBinding::X,
-            KeyKind::Y => KeyBinding::Y,
-            KeyKind::Z => KeyBinding::Z,
-            KeyKind::Zero => KeyBinding::Zero,
-            KeyKind::One => KeyBinding::One,
-            KeyKind::Two => KeyBinding::Two,
-            KeyKind::Three => KeyBinding::Three,
-            KeyKind::Four => KeyBinding::Four,
-            KeyKind::Five => KeyBinding::Five,
-            KeyKind::Six => KeyBinding::Six,
-            KeyKind::Seven => KeyBinding::Seven,
-            KeyKind::Eight => KeyBinding::Eight,
-            KeyKind::Nine => KeyBinding::Nine,
-            KeyKind::F1 => KeyBinding::F1,
-            KeyKind::F2 => KeyBinding::F2,
-            KeyKind::F3 => KeyBinding::F3,
-            KeyKind::F4 => KeyBinding::F4,
-            KeyKind::F5 => KeyBinding::F5,
-            KeyKind::F6 => KeyBinding::F6,
-            KeyKind::F7 => KeyBinding::F7,
-            KeyKind::F8 => KeyBinding::F8,
-            KeyKind::F9 => KeyBinding::F9,
-            KeyKind::F10 => KeyBinding::F10,
-            KeyKind::F11 => KeyBinding::F11,
-            KeyKind::F12 => KeyBinding::F12,
-            KeyKind::Up => KeyBinding::Up,
-            KeyKind::Down => KeyBinding::Down,
-            KeyKind::Left => KeyBinding::Left,
-            KeyKind::Right => KeyBinding::Right,
-            KeyKind::Home => KeyBinding::Home,
-            KeyKind::End => KeyBinding::End,
-            KeyKind::PageUp => KeyBinding::PageUp,
-            KeyKind::PageDown => KeyBinding::PageDown,
-            KeyKind::Insert => KeyBinding::Insert,
-            KeyKind::Delete => KeyBinding::Delete,
-            KeyKind::Enter => KeyBinding::Enter,
-            KeyKind::Space => KeyBinding::Space,
-            KeyKind::Tilde => KeyBinding::Tilde,
-            KeyKind::Quote => KeyBinding::Quote,
-            KeyKind::Semicolon => KeyBinding::Semicolon,
-            KeyKind::Comma => KeyBinding::Comma,
-            KeyKind::Period => KeyBinding::Period,
-            KeyKind::Slash => KeyBinding::Slash,
-            KeyKind::Esc => KeyBinding::Esc,
-            KeyKind::Shift => KeyBinding::Shift,
-            KeyKind::Ctrl => KeyBinding::Ctrl,
-            KeyKind::Alt => KeyBinding::Alt,
-            KeyKind::Backspace => KeyBinding::Backspace,
+#[derive(Clone, Copy, PartialEq, Debug, Serialize, Deserialize)]
+pub struct MobbingKey {
+    pub key: KeyBinding,
+    #[serde(default)]
+    pub key_hold_millis: u64,
+    #[serde(default, deserialize_with = "deserialize_with_ok_or_default")]
+    pub link_key: LinkKeyBinding,
+    #[serde(default = "count_default")]
+    pub count: u32,
+    pub with: ActionKeyWith,
+    pub wait_before_millis: u64,
+    pub wait_before_millis_random_range: u64,
+    pub wait_after_millis: u64,
+    pub wait_after_millis_random_range: u64,
+}
+
+impl Default for MobbingKey {
+    fn default() -> Self {
+        Self {
+            key: KeyBinding::default(),
+            key_hold_millis: 0,
+            link_key: LinkKeyBinding::None,
+            count: count_default(),
+            with: ActionKeyWith::default(),
+            wait_before_millis: 0,
+            wait_before_millis_random_range: 0,
+            wait_after_millis: 0,
+            wait_after_millis_random_range: 0,
         }
     }
+}
+
+fn count_default() -> u32 {
+    1
 }

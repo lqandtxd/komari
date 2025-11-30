@@ -325,42 +325,6 @@ impl From<Rect> for Bound {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Debug, Serialize, Deserialize)]
-pub struct MobbingKey {
-    pub key: KeyBinding,
-    #[serde(default)]
-    pub key_hold_millis: u64,
-    #[serde(default, deserialize_with = "deserialize_with_ok_or_default")]
-    pub link_key: LinkKeyBinding,
-    #[serde(default = "key_count_default")]
-    pub count: u32,
-    pub with: ActionKeyWith,
-    pub wait_before_millis: u64,
-    pub wait_before_millis_random_range: u64,
-    pub wait_after_millis: u64,
-    pub wait_after_millis_random_range: u64,
-}
-
-impl Default for MobbingKey {
-    fn default() -> Self {
-        Self {
-            key: KeyBinding::default(),
-            key_hold_millis: 0,
-            link_key: LinkKeyBinding::None,
-            count: key_count_default(),
-            with: ActionKeyWith::default(),
-            wait_before_millis: 0,
-            wait_before_millis_random_range: 0,
-            wait_after_millis: 0,
-            wait_after_millis_random_range: 0,
-        }
-    }
-}
-
-fn key_count_default() -> u32 {
-    1
-}
-
 #[derive(
     Clone, Copy, PartialEq, Default, Debug, Serialize, Deserialize, EnumIter, Display, EnumString,
 )]

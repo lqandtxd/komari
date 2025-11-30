@@ -50,8 +50,8 @@ mod utils;
 
 pub use {
     database::{
-        Bound, Character, Class, DatabaseEvent, Minimap, MobbingKey, NavigationPath,
-        NavigationPaths, NavigationPoint, NavigationTransition, Platform, PotionMode, RotationMode,
+        Bound, Character, Class, DatabaseEvent, Minimap, NavigationPath, NavigationPaths,
+        NavigationPoint, NavigationTransition, Platform, PotionMode, RotationMode,
         database_event_receiver,
     },
     models::*,
