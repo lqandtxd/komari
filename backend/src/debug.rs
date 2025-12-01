@@ -187,10 +187,14 @@ pub fn debug_rune(mat: &Mat, preds: &Vec<&[f32]>, w_ratio: f32, h_ratio: f32) {
 }
 
 pub fn save_rune_for_training<T: MatTraitConst + ToInputArray>(mat: &T, result: ArrowsComplete) {
-    let name = Alphanumeric.sample_string(&mut rand::rng(), 8);
+    let has_spin_arrow = result.spins.iter().any(|spin| *spin);
+    let mut name = Alphanumeric.sample_string(&mut rand::rng(), 8);
+    if has_spin_arrow {
+        name = format!("{name}_spin");
+    }
     let size = mat.size().unwrap();
 
-    let labels = if result.spins.iter().any(|spin| *spin) {
+    let labels = if has_spin_arrow {
         result
             .bboxes
             .into_iter()
