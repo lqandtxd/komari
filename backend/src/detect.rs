@@ -2858,9 +2858,8 @@ fn extract_text_bboxes(
         .unwrap()
         .clone_pointee();
     // remove last channel (not sure what other way to do it without clone_pointee first)
-    let mut link_score = link_score
-        .reshape_nd_mut(1, &link_score.mat_size().as_slice()[..2])
-        .unwrap();
+    let link_score_size = link_score.mat_size().to_vec();
+    let mut link_score = link_score.reshape_nd_mut(1, &link_score_size[..2]).unwrap();
     // SAFETY: can be modified in place
     unsafe {
         link_score.modify_inplace(|mat, mat_mut| {
