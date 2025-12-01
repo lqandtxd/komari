@@ -142,6 +142,7 @@ pub enum WaitAfterBuffered {
     Uninterruptible,
 }
 
+/// A persistent model representing a user-provided [`Action`] that is fixed per character.
 #[derive(Clone, Copy, PartialEq, Debug, Serialize, Deserialize)]
 pub struct ActionConfiguration {
     pub key: KeyBinding,
