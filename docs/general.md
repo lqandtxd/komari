@@ -78,9 +78,10 @@ If the bot is close enough to the destination (within `25` units, subject to cha
 #### Character Sections
 
 1. `Key Bindings` – For general in-game key mappings.
-3. `Use potion and feed pet` – Configures potion usage and pet feeding.
-4. `Use booster` – Configures Generic/HEXA booster usage.
-5. `Movement` – Movement settings.
+2. `Use potion and feed pet` – Configures potion usage and pet feeding.
+3. `Use booster` – Configures Generic/HEXA booster usage.
+4. `Movement` – Movement settings.
+5. `Familiars` – Familiars swapping settings.
 6. `Buffs` – For automatic buff setup.
 7. `Fixed Actions` – Shared across all maps (useful for buffs or one-time skills).
 8. `Others` – Miscellaneous character settings.
@@ -367,7 +368,7 @@ You can also directly select a capture window via `Handle`.
 
 Introduced in **v0.13**.
 
-Located under `Settings` → `Familiars`. Automatically checks equipped familiar levels and swaps them when maxed:
+Located under `Characters` → `Familiars`. Automatically checks equipped familiar levels and swaps them when maxed:
 
 - `Swap check every` – Interval in milliseconds between checks.  
 - `Swappable slots`.  
@@ -377,12 +378,10 @@ Located under `Settings` → `Familiars`. Automatically checks equipped familiar
 - `Can swap rare familiars` – Allows rare ones to be swapped.  
 - `Can swap epic familiars` – Allows epic ones to be swapped.
 
-Supports scrolling through familiar cards.  
-For best results, keep available cards visible without scrolling.
-
 > **Notes:**  
 > - After swapping, familiar buff will be turned off. To enable familiar buff again, enables it in the `Buffs` tab.  
 > - All familiar slots must be unlocked, and the familiar menu key binding must be set.
+> - After 3 swapping attempts with no remaining swappable familiars, the bot stops all further swapping.
 
 ---
 
