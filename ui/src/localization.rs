@@ -116,7 +116,7 @@ fn SectionInfo() -> Element {
                         Data { description: "Ok (new) popup." }
                     }
                     tr {
-                        Data { description: "Familiars", rowspan: 3 }
+                        Data { description: "Familiars", rowspan: 2 }
                         Data { description: "Sort familiar cards by level before swapping." }
                         Data { description: "Familiar menu setup tab's setup level sort button." }
                     }

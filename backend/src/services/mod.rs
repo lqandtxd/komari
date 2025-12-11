@@ -2,11 +2,12 @@ use std::{
     any::{Any, TypeId},
     cell::RefCell,
     collections::HashMap,
-    fmt,
+    fmt::{self, Debug},
     rc::Rc,
     sync::Arc,
 };
 
+use log::debug;
 use platforms::{Window, input::InputKind};
 use tokio::sync::broadcast::Receiver;
 
@@ -26,7 +27,7 @@ use crate::{
         localization::{DefaultLocalizationService, LocalizationService},
         map::{DefaultMapService, MapService},
         navigator::{DefaultNavigatorService, NavigatorService},
-        operation::{DefaultOperationService, OperationService},
+        operation::{DefaultOperationService, OperationEventHandler, OperationService},
         rotator::{DefaultRotatorService, RotatorService},
         settings::{DefaultSettingsService, SettingsService},
         ui::{DefaultUiService, UiEventHandler, UiService},
@@ -48,7 +49,7 @@ mod settings;
 mod ui;
 mod world;
 
-pub trait Event: Any + Send + Sync + 'static {}
+pub trait Event: Any + Send + Sync + Debug + 'static {}
 
 trait EventHandler<E: Event> {
     fn handle(&mut self, context: &mut EventContext<'_>, event: E);
@@ -142,6 +143,7 @@ impl Services {
         event_bus.subscribe(GameEventHandler);
         event_bus.subscribe(ControlEventHandler);
         event_bus.subscribe(WorldEventHandler);
+        event_bus.subscribe(OperationEventHandler);
 
         Self {
             event_bus,
@@ -226,6 +228,7 @@ impl Services {
             debug_service: &mut self.debug,
         };
         for event in events {
+            debug!(target: "services", "processing event {event:?}");
             self.event_bus.emit(&mut context, event);
         }
 

@@ -2,6 +2,7 @@ use std::{fmt::Debug, time::Duration};
 
 use tokio::{spawn, task::JoinHandle, time::sleep};
 
+use super::EventContext;
 use crate::{
     BotOperationUpdate, Settings,
     ecs::{Resources, World},
@@ -9,11 +10,12 @@ use crate::{
     operation::Operation,
     player::{Panic, PanicTo, PlayerAction},
     rotator::Rotator,
-    services::Event,
+    services::{Event, EventHandler},
 };
 
 const PENDING_HALT_SECS: u64 = 12;
 
+#[derive(Debug)]
 pub enum OperationEvent {
     Halt,
 }
@@ -129,5 +131,20 @@ impl OperationService for DefaultOperationService {
         self.pending_halt = Some(spawn(async move {
             sleep(Duration::from_secs(PENDING_HALT_SECS)).await;
         }));
+    }
+}
+
+pub struct OperationEventHandler;
+
+impl EventHandler<OperationEvent> for OperationEventHandler {
+    fn handle(&mut self, context: &mut EventContext<'_>, event: OperationEvent) {
+        match event {
+            OperationEvent::Halt => context.operation_service.halt(
+                context.resources,
+                context.world,
+                context.rotator,
+                true,
+            ),
+        }
     }
 }

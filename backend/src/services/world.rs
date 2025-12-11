@@ -58,6 +58,11 @@ impl EventHandler<WorldEvent> for WorldEventHandler {
                 }
             }
             WorldEvent::MinimapChanged => {
+                let _ = context
+                    .resources
+                    .notification
+                    .schedule_notification(NotificationKind::FailOrMapChange);
+
                 if context.resources.operation.halting()
                     || !context
                         .settings_service
