@@ -1,7 +1,7 @@
 use anyhow::Result;
 use opencv::{
     boxed_ref::BoxedRef,
-    core::{Mat, MatTraitConst, Vec4b},
+    core::{Mat, Vec4b},
 };
 use platforms::capture::Frame;
 
@@ -42,7 +42,7 @@ impl OwnedMat {
 #[cfg(debug_assertions)]
 impl From<Mat> for OwnedMat {
     fn from(value: Mat) -> Self {
-        use opencv::core::MatTraitConstManual;
+        use opencv::core::{MatTraitConst, MatTraitConstManual};
 
         Self {
             rows: value.rows(),

@@ -225,6 +225,7 @@ impl Services {
             control_service: &mut self.control,
             operation_service: &mut self.operation,
             ui_service: &mut self.ui,
+            #[cfg(debug_assertions)]
             debug_service: &mut self.debug,
         };
         for event in events {
