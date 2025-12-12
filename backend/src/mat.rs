@@ -5,7 +5,7 @@ use opencv::{
 };
 use platforms::capture::Frame;
 
-/// A [`Mat`] that owns the external buffer.
+/// A BGRA [`Mat`] that owns the external buffer.
 #[derive(Debug)]
 pub struct OwnedMat {
     rows: i32,
