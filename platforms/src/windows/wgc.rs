@@ -4,7 +4,7 @@
 
 use std::{
     cmp::min,
-    mem, ptr, slice,
+    mem, slice,
     sync::{Arc, Mutex, mpsc},
 };
 
@@ -152,22 +152,15 @@ impl WgcCaptureInner {
         let vec = if texture_height * 4 != resource.RowPitch {
             let capacity = (texture_width * texture_height * 4) as usize;
             let dst_stride = (texture_width * 4) as usize;
-            let mut vec = Vec::<u8>::with_capacity(capacity);
-            let vec_ptr = vec.as_mut_ptr();
+            let mut vec = vec![0u8; capacity];
             for i in 0..texture_height as usize {
                 let src_offset = resource.RowPitch as usize * i;
                 let dst_offset = dst_stride * i;
-                unsafe {
-                    ptr::copy_nonoverlapping(
-                        buffer.as_ptr().add(src_offset),
-                        vec_ptr.add(dst_offset),
-                        dst_stride,
-                    );
-                }
+
+                vec[dst_offset..dst_offset + dst_stride]
+                    .copy_from_slice(&buffer[src_offset..src_offset + dst_stride]);
             }
-            unsafe {
-                vec.set_len(capacity);
-            }
+
             vec
         } else {
             buffer.to_vec()
