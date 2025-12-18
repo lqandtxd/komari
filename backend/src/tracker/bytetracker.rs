@@ -218,8 +218,8 @@ fn iou_distance(tracks: &[STrack], detections: &[STrack]) -> Vec<Vec<f32>> {
 
     for (i, t) in tracks.iter().enumerate() {
         for (j, d) in detections.iter().enumerate() {
-            let meas = tlwh_to_xyah(d.tlwh);
-            let gate = t.kalman.gating_distance(meas);
+            let measurement = tlwh_to_xyah(d.tlwh);
+            let gate = t.kalman.gating_distance(measurement);
 
             if gate > t.kalman.gating_threshold() {
                 cost[i][j] = 1e6; // forbid
