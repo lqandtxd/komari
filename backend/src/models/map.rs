@@ -4,7 +4,8 @@ use opencv::core::Rect;
 use serde::{Deserialize, Serialize};
 use strum::{Display, EnumIter, EnumString};
 
-use crate::{Action, MobbingKey, deserialize_with_ok_or_default, pathing};
+use super::{Action, MobbingKey, deserialize_with_ok_or_default, impl_identifiable};
+use crate::pathing;
 
 /// A persistent model representing a map-related data.
 #[derive(PartialEq, Clone, Debug, Default, Serialize, Deserialize)]
@@ -38,6 +39,8 @@ pub struct Map {
     #[serde(default)]
     pub paths_id_index: Option<(i64, usize)>,
 }
+
+impl_identifiable!(Map);
 
 #[derive(Clone, Copy, PartialEq, Default, Debug, Serialize, Deserialize)]
 pub struct Bound {

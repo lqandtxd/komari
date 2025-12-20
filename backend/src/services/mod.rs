@@ -16,7 +16,6 @@ use crate::services::debug::DebugService;
 use crate::{
     Localization, Settings,
     bridge::{Capture, DefaultInputReceiver, Input},
-    database::Identifiable,
     ecs::{Resources, World, WorldEvent},
     navigator::Navigator,
     rotator::Rotator,
@@ -191,7 +190,7 @@ impl Services {
                 self.map.map().and_then(|map| map.id),
                 self.character
                     .character()
-                    .and_then(|character| character.id()),
+                    .and_then(|character| character.id),
             )
             .into_iter()
             .for_each(|event| {

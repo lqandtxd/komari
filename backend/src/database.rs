@@ -5,11 +5,10 @@ use std::{
 
 use anyhow::{Result, bail};
 use rusqlite::{Connection, Params, Statement, types::Null};
-use serde::{Deserialize, Serialize, de::DeserializeOwned};
-use strum::{Display, EnumIter, EnumString};
+use serde::{Serialize, de::DeserializeOwned};
 use tokio::sync::broadcast::{Receiver, Sender, channel};
 
-use crate::models::*;
+use crate::models::{Character, Identifiable, Localization, Map, NavigationPaths, Seeds, Settings};
 
 const MAPS: &str = "maps";
 const NAVIGATION_PATHS: &str = "navigation_paths";
@@ -73,95 +72,6 @@ pub enum DatabaseEvent {
     LocalizationUpdated(Localization),
     CharacterUpdated(Character),
     CharacterDeleted(i64),
-}
-
-pub trait Identifiable {
-    fn id(&self) -> Option<i64>;
-
-    fn set_id(&mut self, id: i64);
-}
-
-#[macro_export]
-macro_rules! impl_identifiable {
-    ($type:ty) => {
-        impl $crate::database::Identifiable for $type {
-            fn id(&self) -> Option<i64> {
-                self.id
-            }
-
-            fn set_id(&mut self, id: i64) {
-                self.id = Some(id);
-            }
-        }
-    };
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct Seeds {
-    #[serde(skip_serializing, default)]
-    pub id: Option<i64>,
-    #[serde(alias = "seed")]
-    pub rng_seed: [u8; 32],
-    #[serde(default = "perlin_seed_default")]
-    pub perlin_seed: u32,
-}
-
-impl_identifiable!(Seeds);
-
-impl Default for Seeds {
-    fn default() -> Self {
-        Self {
-            id: None,
-            rng_seed: rand::random(),
-            perlin_seed: perlin_seed_default(),
-        }
-    }
-}
-
-fn perlin_seed_default() -> u32 {
-    rand::random()
-}
-
-impl_identifiable!(Character);
-
-impl_identifiable!(Map);
-
-#[derive(PartialEq, Clone, Debug, Default, Serialize, Deserialize)]
-pub struct NavigationPaths {
-    #[serde(skip_serializing, default)]
-    pub id: Option<i64>,
-    pub name: String,
-    pub paths: Vec<NavigationPath>,
-}
-
-impl_identifiable!(NavigationPaths);
-
-#[derive(PartialEq, Clone, Debug, Default, Serialize, Deserialize)]
-pub struct NavigationPath {
-    pub minimap_snapshot_base64: String,
-    #[serde(default)]
-    pub minimap_snapshot_grayscale: bool,
-    pub name_snapshot_base64: String,
-    pub name_snapshot_width: i32,
-    pub name_snapshot_height: i32,
-    pub points: Vec<NavigationPoint>,
-}
-
-#[derive(PartialEq, Clone, Copy, Debug, Default, Serialize, Deserialize)]
-pub struct NavigationPoint {
-    // Not FK, loose coupling to another navigation paths and its index
-    pub next_paths_id_index: Option<(i64, usize)>,
-    pub x: i32,
-    pub y: i32,
-    pub transition: NavigationTransition,
-}
-
-#[derive(
-    Clone, Copy, PartialEq, Default, Debug, Serialize, Deserialize, EnumIter, Display, EnumString,
-)]
-pub enum NavigationTransition {
-    #[default]
-    Portal,
 }
 
 pub fn database_event_receiver() -> Receiver<DatabaseEvent> {

@@ -1,8 +1,8 @@
 use serde::{Deserialize, Serialize};
 use strum::{Display, EnumIter, EnumString};
 
-use super::deserialize_with_ok_or_default;
-use crate::{KeyBinding, KeyBindingConfiguration, impl_identifiable};
+use super::{deserialize_with_ok_or_default, impl_identifiable};
+use crate::{KeyBinding, KeyBindingConfiguration};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Settings {

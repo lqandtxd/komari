@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use strum::{Display, EnumIter, EnumString};
 
-use crate::{ActionKeyWith, models::deserialize_with_ok_or_default};
+use super::{ActionKeyWith, deserialize_with_ok_or_default};
 
 #[derive(Clone, Copy, Default, PartialEq, Debug, Serialize, Deserialize)]
 pub struct KeyBindingConfiguration {

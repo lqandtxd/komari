@@ -21,10 +21,11 @@ use tokio::sync::broadcast::Receiver;
 use crate::{
     ActionKeyDirection, ActionKeyWith, NavigationPaths, Position, WaitAfterBuffered,
     bridge::{KeyKind, LinkKeyKind},
-    database::{NavigationPath, NavigationTransition, query_navigation_paths},
+    database::query_navigation_paths,
     detect::Detector,
     ecs::{Resources, WorldEvent},
     minimap::Minimap,
+    models::{NavigationPath, NavigationTransition},
     player::{Key, PlayerAction, PlayerContext},
 };
 
@@ -640,7 +641,7 @@ mod tests {
     use tokio::sync::broadcast::channel;
 
     use super::*;
-    use crate::{database::NavigationPoint, detect::MockDetector, minimap::MinimapIdle};
+    use crate::{detect::MockDetector, minimap::MinimapIdle, models::NavigationPoint};
 
     impl Default for DefaultNavigator {
         fn default() -> Self {

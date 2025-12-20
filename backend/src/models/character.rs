@@ -5,6 +5,7 @@ use strum::{Display, EnumIter, EnumString};
 
 use super::{
     ActionConfiguration, KeyBinding, KeyBindingConfiguration, deserialize_with_ok_or_default,
+    impl_identifiable,
 };
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -85,6 +86,8 @@ pub struct Character {
     #[serde(default)]
     pub elite_boss_behavior_key: KeyBinding,
 }
+
+impl_identifiable!(Character);
 
 impl Default for Character {
     fn default() -> Self {

@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::impl_identifiable;
+use super::impl_identifiable;
 
 #[derive(Clone, PartialEq, Debug, Default, Serialize, Deserialize)]
 pub struct Localization {
