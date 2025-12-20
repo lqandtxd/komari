@@ -74,7 +74,7 @@ pub struct PlayerEntity {
 }
 
 /// The player contextual states.
-#[derive(Clone, Copy, Debug, Display)]
+#[derive(Clone, Debug, Display)]
 #[allow(clippy::large_enum_variant)] // There is only ever a single instance of Player
 pub enum Player {
     /// Detects player on the minimap.
@@ -189,9 +189,10 @@ pub fn run_system(
         }
     );
 
-    let did_update = player
-        .context
-        .update_state(resources, player.state, minimap.state, buffs);
+    let did_update =
+        player
+            .context
+            .update_state(resources, player.state.clone(), minimap.state, buffs);
     if !did_update && !resources.operation.halting() {
         // When the player detection fails, the possible causes are:
         // - Player moved inside the edges of the minimap

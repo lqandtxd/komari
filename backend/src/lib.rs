@@ -98,7 +98,7 @@ macro_rules! send_request {
 #[derive(Debug)]
 enum Request {
     UpdateOperation(BotOperationUpdate),
-    CreateMinimap(String),
+    CreateMap(String),
     UpdateMap(Option<String>, Option<Map>),
     CreateNavigationPath,
     RecaptureNavigationPath(NavigationPath),
@@ -134,7 +134,7 @@ enum Request {
 #[derive(Debug)]
 enum Response {
     UpdateOperation,
-    CreateMinimap(Option<Map>),
+    CreateMap(Option<Map>),
     UpdateMap,
     CreateNavigationPath(Option<NavigationPath>),
     RecaptureNavigationPath(NavigationPath),
@@ -284,7 +284,7 @@ pub async fn query_maps() -> Option<Vec<Map>> {
 ///
 /// This function does not insert the created map into the database.
 pub async fn create_map(name: String) -> Option<Map> {
-    send_request!(CreateMinimap(name) => (map))
+    send_request!(CreateMap(name) => (map))
 }
 
 /// Upserts `map` to the database.

@@ -83,7 +83,7 @@ impl Operation {
                         once,
                     }
                 } else {
-                    Operation::run_until(
+                    run_until(
                         run_duration_millis,
                         stop_duration_millis,
                         matches!(mode, CycleRunStopMode::Once),
@@ -115,7 +115,7 @@ impl Operation {
                             run_duration_millis,
                         }
                     } else {
-                        Operation::halt_until(run_duration_millis, stop_duration_millis)
+                        halt_until(run_duration_millis, stop_duration_millis)
                     }
                 }
             },
@@ -134,7 +134,7 @@ impl Operation {
             Operation::Halting => Operation::Halting,
             Operation::Running | Operation::RunUntil { .. } => match mode {
                 CycleRunStopMode::None => Operation::Running,
-                CycleRunStopMode::Once | CycleRunStopMode::Repeat => Operation::run_until(
+                CycleRunStopMode::Once | CycleRunStopMode::Repeat => run_until(
                     run_duration_millis,
                     stop_duration_millis,
                     matches!(mode, CycleRunStopMode::Once),
@@ -154,7 +154,7 @@ impl Operation {
                 if now < instant {
                     self
                 } else {
-                    Operation::run_until(run_duration_millis, stop_duration_millis, false)
+                    run_until(run_duration_millis, stop_duration_millis, false)
                 }
             }
             Operation::RunUntil {
@@ -168,29 +168,10 @@ impl Operation {
                 } else if once {
                     Operation::Halting
                 } else {
-                    Operation::halt_until(run_duration_millis, stop_duration_millis)
+                    halt_until(run_duration_millis, stop_duration_millis)
                 }
             }
             Operation::Halting | Operation::TemporaryHalting { .. } | Operation::Running => self,
-        }
-    }
-
-    #[inline]
-    fn halt_until(run_duration_millis: u64, stop_duration_millis: u64) -> Operation {
-        Operation::HaltUntil {
-            instant: Instant::now() + Duration::from_millis(stop_duration_millis),
-            run_duration_millis,
-            stop_duration_millis,
-        }
-    }
-
-    #[inline]
-    fn run_until(run_duration_millis: u64, stop_duration_millis: u64, once: bool) -> Operation {
-        Operation::RunUntil {
-            instant: Instant::now() + Duration::from_millis(run_duration_millis),
-            run_duration_millis,
-            stop_duration_millis,
-            once,
         }
     }
 }
@@ -212,6 +193,25 @@ impl Display for Operation {
                 write!(f, "Running for {}", duration_from_instant(instant))
             }
         }
+    }
+}
+
+#[inline]
+fn halt_until(run_duration_millis: u64, stop_duration_millis: u64) -> Operation {
+    Operation::HaltUntil {
+        instant: Instant::now() + Duration::from_millis(stop_duration_millis),
+        run_duration_millis,
+        stop_duration_millis,
+    }
+}
+
+#[inline]
+fn run_until(run_duration_millis: u64, stop_duration_millis: u64, once: bool) -> Operation {
+    Operation::RunUntil {
+        instant: Instant::now() + Duration::from_millis(run_duration_millis),
+        run_duration_millis,
+        stop_duration_millis,
+        once,
     }
 }
 

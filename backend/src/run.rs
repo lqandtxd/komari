@@ -175,13 +175,13 @@ fn systems_loop() {
             resources.detector = Some(Arc::new(detector));
             resources.operation = resources.operation.update_tick();
 
-            minimap::run_system(&resources, &mut world.minimap, world.player.state);
+            minimap::run_system(&resources, &mut world.minimap, world.player.state.clone());
             player::run_system(&resources, &mut world.player, &world.minimap, &world.buffs);
             for skill in world.skills.iter_mut() {
-                skill::run_system(&resources, skill, world.player.state);
+                skill::run_system(&resources, skill, world.player.state.clone());
             }
             for buff in world.buffs.iter_mut() {
-                buff::run_system(&resources, buff, world.player.state);
+                buff::run_system(&resources, buff, world.player.state.clone());
             }
 
             if navigator.navigate_player(&resources, &mut world.player.context, world.minimap.state)

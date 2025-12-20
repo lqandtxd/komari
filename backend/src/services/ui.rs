@@ -82,7 +82,7 @@ impl EventHandler<UiEvent> for UiEventHandler {
                 update_operation(context, update);
                 Response::UpdateOperation
             }
-            Request::CreateMinimap(name) => Response::CreateMinimap(create_map(context, name)),
+            Request::CreateMap(name) => Response::CreateMap(create_map(context, name)),
             Request::UpdateMap(preset, map) => {
                 update_map(context, preset, map);
                 Response::UpdateMap
