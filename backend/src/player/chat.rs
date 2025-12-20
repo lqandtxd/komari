@@ -1,12 +1,12 @@
 use crate::{
     array::Array,
     bridge::KeyKind,
-    ecs::Resources,
+    ecs::{Resources, transition, transition_if, try_some_transition},
     player::{
         Player, PlayerEntity, next_action,
         timeout::{Lifecycle, Timeout, next_timeout_lifecycle},
+        transition_from_action,
     },
-    transition, transition_from_action, transition_if, try_some_transition,
 };
 
 const MAX_RETRY: u32 = 3;

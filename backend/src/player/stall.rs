@@ -3,7 +3,11 @@ use super::{
     actions::next_action,
     timeout::{Lifecycle, Timeout, next_timeout_lifecycle},
 };
-use crate::{Position, player::PlayerEntity, transition, transition_from_action, transition_if};
+use crate::{
+    Position,
+    ecs::{transition, transition_if},
+    player::{PlayerEntity, transition_from_action},
+};
 
 /// Updates the [`Player::Stalling`] contextual state.
 ///

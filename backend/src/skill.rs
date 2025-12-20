@@ -9,10 +9,9 @@ use opencv::core::{MatTraitConst, Point, Rect, Vec4b};
 use strum::{Display, EnumIter};
 
 use crate::{
-    ecs::Resources,
+    ecs::{Resources, transition, transition_if, try_ok_transition},
     player::Player,
     task::{Task, Update, update_detection_task},
-    transition, transition_if, try_ok_transition,
 };
 
 /// An entity that contains skill-related data.

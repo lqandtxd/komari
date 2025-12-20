@@ -3,10 +3,11 @@ use opencv::core::Point;
 use super::timeout::{Lifecycle, Timeout, next_timeout_lifecycle};
 use crate::{
     bridge::KeyKind,
-    ecs::Resources,
+    ecs::{Resources, transition},
     minimap::Minimap,
-    player::{MOVE_TIMEOUT, Player, PlayerAction, PlayerEntity, next_action},
-    transition, transition_from_action,
+    player::{
+        MOVE_TIMEOUT, Player, PlayerAction, PlayerEntity, next_action, transition_from_action,
+    },
 };
 
 #[derive(Debug, Clone, Copy)]

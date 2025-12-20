@@ -13,14 +13,14 @@ use super::{
 use crate::{
     ActionKeyDirection, ActionKeyWith, Position,
     bridge::KeyKind,
-    ecs::Resources,
+    ecs::{Resources, transition, transition_if},
     minimap::Minimap,
     player::{
         ChattingContent, PlayerEntity, SolvingShape, chat::Chatting,
-        exchange_booster::ExchangingBooster, unstuck::Unstucking, use_booster::UsingBooster,
+        exchange_booster::ExchangingBooster, transition_from_action, unstuck::Unstucking,
+        use_booster::UsingBooster,
     },
     rng::Rng,
-    transition, transition_from_action, transition_if,
 };
 
 /// Updates [`Player::Idle`] contextual state.

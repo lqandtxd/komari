@@ -9,13 +9,13 @@ use super::{
 use crate::{
     ActionKeyWith,
     bridge::KeyKind,
-    ecs::Resources,
+    ecs::{Resources, transition, transition_if},
     minimap::Minimap,
     player::{
         MOVE_TIMEOUT, PlayerAction, PlayerEntity, actions::update_from_auto_mob_action,
-        next_action, state::LastMovement, timeout::ChangeAxis,
+        next_action, state::LastMovement, timeout::ChangeAxis, transition_to_moving,
+        transition_to_moving_if,
     },
-    transition, transition_if, transition_to_moving, transition_to_moving_if,
 };
 
 /// Minimum y distance from the destination required to perform a fall.

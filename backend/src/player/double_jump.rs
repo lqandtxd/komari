@@ -15,7 +15,7 @@ use super::{
 use crate::{
     ActionKeyDirection, ActionKeyWith,
     bridge::KeyKind,
-    ecs::Resources,
+    ecs::{Resources, transition, transition_if},
     minimap::Minimap,
     player::{
         PlayerEntity,
@@ -24,8 +24,8 @@ use crate::{
         next_action,
         state::LastMovement,
         timeout::{ChangeAxis, Timeout},
+        transition_from_action, transition_to_moving,
     },
-    transition, transition_from_action, transition_if, transition_to_moving,
 };
 
 /// Minimum x distance from the destination required to perform a double jump.

@@ -5,8 +5,9 @@ use super::{
     timeout::{Lifecycle, Timeout, next_timeout_lifecycle},
 };
 use crate::{
-    bridge::KeyKind, ecs::Resources, player::PlayerEntity, transition, transition_if,
-    try_some_transition,
+    bridge::KeyKind,
+    ecs::{Resources, transition, transition_if, try_some_transition},
+    player::PlayerEntity,
 };
 
 #[derive(Clone, Copy, Debug)]

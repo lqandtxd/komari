@@ -5,12 +5,12 @@ use super::{Player, timeout::Timeout};
 use crate::{
     array::Array,
     bridge::{KeyKind, MouseKind},
-    ecs::Resources,
+    ecs::{Resources, transition, try_ok_transition, try_some_transition},
     player::{
         Booster, PlayerEntity, next_action,
         timeout::{Lifecycle, next_timeout_lifecycle},
+        transition_from_action,
     },
-    transition, transition_from_action, try_ok_transition, try_some_transition,
 };
 
 /// States of exchanging HEXA booster.

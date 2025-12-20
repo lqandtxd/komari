@@ -15,7 +15,7 @@ use crate::{
     ActionKeyDirection, ActionKeyWith, MAX_PLATFORMS_COUNT,
     array::Array,
     bridge::KeyKind,
-    ecs::Resources,
+    ecs::{Resources, transition, transition_if},
     minimap::Minimap,
     pathing::{MovementHint, PlatformWithNeighbors, find_points_with},
     player::{
@@ -24,10 +24,10 @@ use crate::{
         grapple::{GRAPPLING_THRESHOLD, Grappling},
         next_action,
         solve_rune::SolvingRune,
+        transition_from_action,
         unstuck::Unstucking,
         use_key::UseKey,
     },
-    transition, transition_from_action, transition_if,
 };
 
 /// Maximum amount of ticks a change in x or y direction must be detected.

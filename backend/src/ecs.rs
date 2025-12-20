@@ -15,7 +15,6 @@ use crate::{
 #[cfg(debug_assertions)]
 use crate::{debug::save_rune_for_training, detect::ArrowsComplete};
 
-#[macro_export]
 macro_rules! transition {
     ($entity:expr, $state:expr) => {{
         $entity.state = $state;
@@ -28,7 +27,8 @@ macro_rules! transition {
     }};
 }
 
-#[macro_export]
+pub(super) use transition;
+
 macro_rules! transition_if {
     ($cond:expr) => {{
         if $cond {
@@ -54,7 +54,8 @@ macro_rules! transition_if {
     }};
 }
 
-#[macro_export]
+pub(super) use transition_if;
+
 macro_rules! try_some_transition {
     ($entity:expr, $state:expr, $expr:expr) => {
         match $expr {
@@ -77,7 +78,8 @@ macro_rules! try_some_transition {
     };
 }
 
-#[macro_export]
+pub(super) use try_some_transition;
+
 macro_rules! try_ok_transition {
     ($entity:expr, $state:expr, $expr:expr) => {
         match $expr {
@@ -89,6 +91,8 @@ macro_rules! try_ok_transition {
         }
     };
 }
+
+pub(super) use try_ok_transition;
 
 #[derive(Debug, Default)]
 #[cfg(debug_assertions)]

@@ -3,13 +3,13 @@ use log::info;
 use super::{Player, actions::PanicTo, timeout::Timeout};
 use crate::{
     bridge::KeyKind,
-    ecs::Resources,
+    ecs::{Resources, transition, transition_if, try_some_transition},
     minimap::Minimap,
     player::{
         PlayerEntity, next_action,
         timeout::{Lifecycle, next_timeout_lifecycle},
+        transition_from_action,
     },
-    transition, transition_from_action, transition_if, try_some_transition,
 };
 
 const MAX_RETRY: u32 = 3;

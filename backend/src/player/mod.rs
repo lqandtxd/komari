@@ -22,7 +22,7 @@ use use_key::{UseKey, update_use_key_state};
 use crate::{
     bridge::KeyKind,
     buff::BuffEntities,
-    ecs::Resources,
+    ecs::{Resources, transition, transition_if},
     minimap::{Minimap, MinimapEntity},
     models::ActionKeyDirection,
     player::{
@@ -33,7 +33,6 @@ use crate::{
         unstuck::Unstucking,
         use_booster::{UsingBooster, update_using_booster_state},
     },
-    transition, transition_if,
 };
 
 mod actions;

@@ -8,13 +8,12 @@ use super::{
 use crate::{
     ActionKeyWith,
     bridge::{InputKeyDownOptions, KeyKind},
-    ecs::Resources,
+    ecs::{Resources, transition, transition_if},
     minimap::Minimap,
     player::{
         MOVE_TIMEOUT, PlayerAction, PlayerEntity, actions::update_from_auto_mob_action,
-        next_action, state::LastMovement, timeout::ChangeAxis,
+        next_action, state::LastMovement, timeout::ChangeAxis, transition_to_moving,
     },
-    transition, transition_if, transition_to_moving,
 };
 
 /// Number of ticks to wait before spamming jump key.

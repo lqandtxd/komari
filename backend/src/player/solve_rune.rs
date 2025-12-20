@@ -6,9 +6,8 @@ use super::{
 use crate::{
     bridge::KeyKind,
     detect::{ArrowsCalibrating, ArrowsState},
-    ecs::Resources,
-    player::{PlayerContext, PlayerEntity, next_action, timeout::Timeout},
-    transition, transition_from_action, transition_if, try_ok_transition,
+    ecs::{Resources, transition, transition_if, try_ok_transition},
+    player::{PlayerContext, PlayerEntity, next_action, timeout::Timeout, transition_from_action},
 };
 
 /// Representing the current state of rune solving.

@@ -3,13 +3,13 @@ use opencv::core::{Point, Point2d, Rect};
 
 use crate::{
     bridge::MouseKind,
-    ecs::Resources,
+    ecs::{Resources, transition, transition_if, try_ok_transition},
     player::{
         Player, PlayerAction, PlayerContext, PlayerEntity, next_action,
         timeout::{Lifecycle, Timeout, next_timeout_lifecycle},
+        transition_from_action,
     },
     tracker::{ByteTracker, Detection, STrack},
-    transition, transition_from_action, transition_if, try_ok_transition,
 };
 
 #[derive(Debug)]

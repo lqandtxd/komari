@@ -7,7 +7,7 @@ use super::{Player, PlayerContext, use_key::UseKey};
 use crate::{
     array::Array,
     bridge::{KeyKind, LinkKeyKind},
-    ecs::Resources,
+    ecs::{Resources, transition, transition_if},
     minimap::Minimap,
     models::{
         Action, ActionKey, ActionKeyDirection, ActionKeyWith, ActionMove, FamiliarRarity, Position,
@@ -15,7 +15,6 @@ use crate::{
     },
     player::PlayerEntity,
     run::MS_PER_TICK,
-    transition, transition_if,
 };
 
 /// The minimum x distance required to transition to [`Player::UseKey`] in auto mob action.
@@ -248,7 +247,6 @@ impl From<Action> for PlayerAction {
     }
 }
 
-#[macro_export]
 macro_rules! transition_to_moving {
     ($player:expr, $moving:expr) => {{
         $player.state = Player::Moving($moving.dest, $moving.exact, $moving.intermediates);
@@ -262,7 +260,8 @@ macro_rules! transition_to_moving {
     }};
 }
 
-#[macro_export]
+pub(super) use transition_to_moving;
+
 macro_rules! transition_to_moving_if {
     ($player:expr, $moving:expr, $cond:expr) => {{
         if $cond {
@@ -280,7 +279,8 @@ macro_rules! transition_to_moving_if {
     }};
 }
 
-#[macro_export]
+pub(super) use transition_to_moving_if;
+
 macro_rules! transition_from_action {
     ($player:expr, $state:expr) => {{
         use $crate::{
@@ -330,6 +330,8 @@ macro_rules! transition_from_action {
         return;
     }};
 }
+
+pub(super) use transition_from_action;
 
 #[inline]
 pub(super) fn next_action(context: &PlayerContext) -> Option<PlayerAction> {

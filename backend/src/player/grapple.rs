@@ -5,10 +5,12 @@ use super::{
     timeout::{MovingLifecycle, next_moving_lifecycle_with_axis},
 };
 use crate::{
-    ecs::Resources,
+    ecs::{Resources, transition, transition_if},
     minimap::Minimap,
-    player::{MOVE_TIMEOUT, PlayerEntity, moving::Moving, next_action, timeout::ChangeAxis},
-    transition, transition_if, transition_to_moving, transition_to_moving_if,
+    player::{
+        MOVE_TIMEOUT, PlayerEntity, moving::Moving, next_action, timeout::ChangeAxis,
+        transition_to_moving, transition_to_moving_if,
+    },
 };
 
 /// Minimum y distance from the destination required to perform a grappling hook.

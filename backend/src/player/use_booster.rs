@@ -1,12 +1,12 @@
 use super::{Player, timeout::Timeout};
 use crate::{
     bridge::KeyKind,
-    ecs::Resources,
+    ecs::{Resources, transition, transition_if},
     player::{
         Booster, PlayerEntity, next_action,
         timeout::{Lifecycle, next_timeout_lifecycle},
+        transition_from_action,
     },
-    transition, transition_from_action, transition_if,
 };
 
 /// States of using booster.

@@ -9,13 +9,12 @@ use super::{
 use crate::{
     ActionKeyDirection, ActionKeyWith, Class, Position, WaitAfterBuffered,
     bridge::{InputKeyDownOptions, KeyKind, LinkKeyKind},
-    ecs::Resources,
+    ecs::{Resources, transition, transition_if},
     minimap::Minimap,
     player::{
         LastMovement, MOVE_TIMEOUT, Moving, Player, PlayerEntity, next_action,
-        state::BufferedStallingCallback,
+        state::BufferedStallingCallback, transition_from_action,
     },
-    transition, transition_from_action, transition_if,
 };
 
 /// The total number of ticks for changing direction before timing out.

@@ -9,10 +9,9 @@ use strum::EnumIter;
 use crate::{
     Character, Settings,
     detect::BuffKind as DetectorBuffKind,
-    ecs::Resources,
+    ecs::{Resources, transition, transition_if},
     player::Player,
     task::{Task, Update, update_detection_task},
-    transition, transition_if,
 };
 
 const COMMON_FAIL_COUNT: u32 = 5;

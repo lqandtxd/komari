@@ -9,7 +9,7 @@ use super::{
 use crate::{
     ActionKeyDirection, ActionKeyWith,
     bridge::KeyKind,
-    ecs::Resources,
+    ecs::{Resources, transition, transition_if},
     minimap::Minimap,
     player::{
         Player, PlayerEntity,
@@ -19,8 +19,8 @@ use crate::{
         next_action,
         state::LastMovement,
         timeout::{ChangeAxis, MovingLifecycle, Timeout, next_moving_lifecycle_with_axis},
+        transition_to_moving, transition_to_moving_if,
     },
-    transition, transition_if, transition_to_moving, transition_to_moving_if,
 };
 
 /// Minimum x distance from the destination required to perform small movement.

@@ -12,14 +12,13 @@ use opencv::core::{MatTraitConst, Point, Rect, Vec4b};
 use crate::{
     array::Array,
     detect::{Detector, OtherPlayerKind},
-    ecs::Resources,
+    ecs::{Resources, transition, transition_if, try_some_transition},
     notification::NotificationKind,
     pathing::{
         MAX_PLATFORMS_COUNT, Platform, PlatformWithNeighbors, find_neighbors, find_platforms_bound,
     },
     player::{DOUBLE_JUMP_THRESHOLD, GRAPPLING_MAX_THRESHOLD, JUMP_THRESHOLD, Player},
     task::{Task, Update, update_detection_task},
-    transition, transition_if, try_some_transition,
 };
 
 const MINIMAP_BORDER_WHITENESS_THRESHOLD: u8 = 160;

@@ -4,7 +4,10 @@ use super::{
     state::LastMovement,
     timeout::{ChangeAxis, MovingLifecycle, next_moving_lifecycle_with_axis},
 };
-use crate::{ecs::Resources, player::PlayerEntity, transition, transition_to_moving};
+use crate::{
+    ecs::{Resources, transition},
+    player::{PlayerEntity, transition_to_moving},
+};
 
 const TIMEOUT: u32 = MOVE_TIMEOUT + 3;
 
