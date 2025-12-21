@@ -113,6 +113,35 @@ pub enum LastMovement {
     Jumping,
 }
 
+#[derive(Debug, Copy, Clone, Default)]
+pub(super) enum BufferedStalling {
+    #[default]
+    None,
+    Interruptible(Timeout, u32),
+    Uninterruptible(Timeout, u32),
+}
+
+impl BufferedStalling {
+    pub(super) fn stalling(&self) -> bool {
+        matches!(
+            self,
+            BufferedStalling::Interruptible(_, _) | BufferedStalling::Uninterruptible(_, _)
+        )
+    }
+
+    fn with_timeout(self, timeout: Timeout, max_timeout: u32) -> BufferedStalling {
+        match self {
+            BufferedStalling::None => BufferedStalling::None,
+            BufferedStalling::Interruptible(_, _) => {
+                BufferedStalling::Interruptible(timeout, max_timeout)
+            }
+            BufferedStalling::Uninterruptible(_, _) => {
+                BufferedStalling::Uninterruptible(timeout, max_timeout)
+            }
+        }
+    }
+}
+
 pub(super) struct BufferedStallingCallback {
     inner: Box<dyn Fn(&Resources) + 'static>,
 }
@@ -299,7 +328,6 @@ pub struct PlayerContext {
     /// to [`None`] when the destination (possibly intermediate) is reached or
     /// in [`Player::Idle`].
     pub(super) last_movement: Option<LastMovement>,
-    // TODO: 2 maps fr?
     /// Tracks [`Self::last_movement`] to abort normal action when its position is not accurate.
     ///
     /// Clears when a normal action is completed or aborted.
@@ -353,10 +381,9 @@ pub struct PlayerContext {
     /// [`Timeout`] substitutes for [`Player::Stalling`].
     ///
     /// This allows other action to execute while the previous action is still stalling.
-    pub(super) stalling_timeout_buffered: Option<(Timeout, u32)>,
+    pub(super) stalling_buffered: BufferedStalling,
     pub(super) stalling_timeout_buffered_update_callback: Option<BufferedStallingCallback>,
     pub(super) stalling_timeout_buffered_end_callback: Option<BufferedStallingCallback>,
-    pub(super) stalling_timeout_buffered_interruptible: bool,
 
     /// Stores a list of [`(Point, u64)`] pair samples for approximating velocity.
     velocity_samples: Array<(Point, u64), VELOCITY_SAMPLES>,
@@ -487,11 +514,8 @@ impl PlayerContext {
     ) -> Option<u32> {
         let prev_id = self.priority_action_id;
         self.reset_to_idle_next_update = true;
-        self.reset_stalling_buffer_states_next_update = match action {
-            PlayerAction::Move(_) => false,
-            PlayerAction::Key(_) => self.stalling_timeout_buffered_interruptible,
-            _ => true,
-        };
+        self.reset_stalling_buffer_states_next_update =
+            !matches!(action, PlayerAction::Key(_) | PlayerAction::Move(_));
         self.priority_action_id = id;
 
         if self.priority_action.replace(action).is_some() {
@@ -559,8 +583,17 @@ impl PlayerContext {
         if let Some(callback) = self.stalling_timeout_buffered_end_callback.take() {
             (callback.inner)(resources);
         }
-        self.stalling_timeout_buffered = None;
+        self.stalling_buffered = BufferedStalling::None;
         self.stalling_timeout_buffered_update_callback = None;
+    }
+
+    pub(super) fn clear_stalling_buffer_states_if_possible(&mut self, resources: &Resources) {
+        if matches!(
+            self.stalling_buffered,
+            BufferedStalling::Interruptible(_, _)
+        ) {
+            self.clear_stalling_buffer_states(resources);
+        }
     }
 
     /// Clears either normal or priority due to completion.
@@ -1470,26 +1503,42 @@ impl PlayerContext {
     }
 
     fn update_stalling_buffer_state(&mut self, resources: &Resources) {
-        if let Some((timeout, max_timeout)) = self.stalling_timeout_buffered {
-            self.stalling_timeout_buffered = match next_timeout_lifecycle(timeout, max_timeout) {
-                Lifecycle::Updated(timeout) => {
-                    if let Some(callback) = &self.stalling_timeout_buffered_update_callback {
-                        (callback.inner)(resources);
-                    }
-
-                    Some((timeout, max_timeout))
-                }
-                Lifecycle::Started(timeout) => Some((timeout, max_timeout)),
-                Lifecycle::Ended => {
-                    if let Some(callback) = self.stalling_timeout_buffered_end_callback.take() {
-                        (callback.inner)(resources);
-                    }
-                    self.stalling_timeout_buffered_update_callback = None;
-
-                    None
-                }
+        match self.stalling_buffered {
+            BufferedStalling::None => (),
+            BufferedStalling::Interruptible(timeout, max_timeout)
+            | BufferedStalling::Uninterruptible(timeout, max_timeout) => {
+                self.update_stalling_buffer_state_inner(resources, timeout, max_timeout);
             }
         }
+    }
+
+    fn update_stalling_buffer_state_inner(
+        &mut self,
+        resources: &Resources,
+        timeout: Timeout,
+        max_timeout: u32,
+    ) {
+        let current = self.stalling_buffered;
+        let next = match next_timeout_lifecycle(timeout, max_timeout) {
+            Lifecycle::Started(timeout) => current.with_timeout(timeout, max_timeout),
+            Lifecycle::Updated(timeout) => {
+                if let Some(callback) = &self.stalling_timeout_buffered_update_callback {
+                    (callback.inner)(resources);
+                }
+
+                current.with_timeout(timeout, max_timeout)
+            }
+            Lifecycle::Ended => {
+                if let Some(callback) = self.stalling_timeout_buffered_end_callback.take() {
+                    (callback.inner)(resources);
+                }
+                self.stalling_timeout_buffered_update_callback = None;
+
+                BufferedStalling::None
+            }
+        };
+
+        self.stalling_buffered = next;
     }
 }
 

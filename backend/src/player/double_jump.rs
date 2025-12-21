@@ -19,6 +19,7 @@ use crate::{
     minimap::Minimap,
     player::{
         PlayerEntity,
+        fall::Falling,
         grapple::Grappling,
         moving::MOVE_TIMEOUT,
         next_action,
@@ -350,7 +351,7 @@ fn update_from_ping_pong_action(
     transition_if!(
         player,
         Player::Idle,
-        player.context.stalling_timeout_buffered.is_some()
+        player.context.stalling_buffered.stalling()
     );
 
     resources.input.send_key_up(KeyKind::Left);
@@ -388,11 +389,11 @@ fn update_from_ping_pong_action(
 
     transition_if!(
         player,
-        Player::Falling {
-            moving: Moving::new(cur_pos, Point::new(cur_pos.x, bound.y), false, None),
-            anchor: cur_pos,
-            timeout_on_complete: true,
-        },
+        Player::Falling(Falling::new(
+            Moving::new(cur_pos, Point::new(cur_pos.x, bound.y), false, None),
+            cur_pos,
+            true,
+        )),
         cur_pos.y > bound_y_max || should_downward
     );
     transition!(player, Player::UseKey(UseKey::from_ping_pong(ping_pong)));

@@ -84,10 +84,11 @@ pub fn update_grappling_state(
             transition_if!(
                 player,
                 Player::Grappling(grappling.moving(moving.timeout_started(false))),
-                player.context.stalling_timeout_buffered.is_some()
-                    && player.context.stalling_timeout_buffered_interruptible,
+                player.context.stalling_buffered.stalling(),
                 {
-                    player.context.clear_stalling_buffer_states(resources);
+                    player
+                        .context
+                        .clear_stalling_buffer_states_if_possible(resources);
                 }
             );
 

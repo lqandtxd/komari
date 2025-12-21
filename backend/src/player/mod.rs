@@ -28,6 +28,7 @@ use crate::{
     player::{
         chat::{Chatting, update_chatting_state},
         exchange_booster::{ExchangingBooster, update_exchanging_booster_state},
+        fall::Falling,
         grapple::Grappling,
         solve_shape::{SolvingShape, update_solving_shape_state},
         unstuck::Unstucking,
@@ -97,12 +98,7 @@ pub enum Player {
     Jumping(Moving),
     /// Performs an up jump action.
     UpJumping(UpJumping),
-    /// Performs a falling action.
-    Falling {
-        moving: Moving,
-        anchor: Point,
-        timeout_on_complete: bool,
-    },
+    Falling(Falling),
     /// Unstucks when inside non-detecting position or because of [`PlayerState::unstuck_counter`].
     Unstucking(Unstucking),
     /// Stalls for time and return to [`Player::Idle`] or [`PlayerState::stalling_timeout_state`].
@@ -148,11 +144,7 @@ impl Player {
             Player::Grappling(Grappling { moving, .. })
             | Player::Jumping(moving)
             | Player::UpJumping(UpJumping { moving, .. })
-            | Player::Falling {
-                moving,
-                anchor: _,
-                timeout_on_complete: _,
-            } => moving.completed,
+            | Player::Falling(Falling { moving, .. }) => moving.completed,
             Player::SolvingRune(_)
             | Player::CashShopThenExit(_)
             | Player::Unstucking(_)
@@ -290,11 +282,7 @@ fn update_non_positional_state(
         | Player::Grappling(_)
         | Player::Jumping(_)
         | Player::UpJumping(_)
-        | Player::Falling {
-            moving: _,
-            anchor: _,
-            timeout_on_complete: _,
-        } => return false,
+        | Player::Falling(_) => return false,
     }
 
     true
@@ -316,7 +304,7 @@ fn update_positional_state(
         Player::Grappling(_) => update_grappling_state(resources, player, minimap_state),
         Player::UpJumping(_) => update_up_jumping_state(resources, player, minimap_state),
         Player::Jumping(moving) => update_jumping_state(resources, player, moving),
-        Player::Falling { .. } => update_falling_state(resources, player, minimap_state),
+        Player::Falling(Falling { .. }) => update_falling_state(resources, player, minimap_state),
         Player::UseKey(_)
         | Player::Unstucking(_)
         | Player::Stalling(_, _)

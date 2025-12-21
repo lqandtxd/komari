@@ -19,7 +19,7 @@ use crate::{
     minimap::Minimap,
     pathing::{MovementHint, PlatformWithNeighbors, find_points_with},
     player::{
-        PlayerEntity,
+        Falling, PlayerEntity,
         adjust::{ADJUSTING_MEDIUM_THRESHOLD, ADJUSTING_SHORT_THRESHOLD, Adjusting},
         grapple::{GRAPPLING_THRESHOLD, Grappling},
         next_action,
@@ -365,11 +365,7 @@ pub fn update_moving_state(
     {
         return abort_action_on_state_repeat(
             player,
-            Player::Falling {
-                moving,
-                anchor: cur_pos,
-                timeout_on_complete: false,
-            },
+            Player::Falling(Falling::new(moving, cur_pos, false)),
             minimap_state,
         );
     }
@@ -614,14 +610,7 @@ mod tests {
 
         update_moving_state(&resources, &mut player, Minimap::Detecting);
 
-        assert_matches!(
-            player.state,
-            Player::Falling {
-                moving: _,
-                anchor: _,
-                timeout_on_complete: _
-            }
-        );
+        assert_matches!(player.state, Player::Falling(_));
     }
 
     #[test]

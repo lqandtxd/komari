@@ -35,6 +35,12 @@ macro_rules! transition_if {
             return;
         }
     }};
+    ($cond:expr, $block:block) => {{
+        if $cond {
+            $block
+            return;
+        }
+    }};
     ($entity:expr, $state:expr, $cond:expr) => {{
         if $cond {
             $entity.state = $state;

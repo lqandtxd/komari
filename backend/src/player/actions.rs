@@ -393,7 +393,7 @@ pub(super) fn update_from_auto_mob_action(
     transition_if!(
         player,
         Player::Idle,
-        should_terminate && player.context.stalling_timeout_buffered.is_some(),
+        should_terminate && player.context.stalling_buffered.stalling(),
         {
             player.context.clear_action_completed();
         }

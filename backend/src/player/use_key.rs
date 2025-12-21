@@ -13,7 +13,8 @@ use crate::{
     minimap::Minimap,
     player::{
         LastMovement, MOVE_TIMEOUT, Moving, Player, PlayerEntity, next_action,
-        state::BufferedStallingCallback, transition_from_action,
+        state::{BufferedStalling, BufferedStallingCallback},
+        transition_from_action,
     },
 };
 
@@ -218,7 +219,7 @@ pub fn update_use_key_state(
 
     match use_key.state {
         State::Precondition => {
-            update_precondition(&player.context, &mut use_key);
+            update_precondition(resources, &mut player.context, &mut use_key);
             transition_if!(
                 player,
                 Player::Stalling(Timeout::default(), use_key.wait_before_use_ticks),
@@ -289,15 +290,19 @@ pub fn update_use_key_state(
                 } else {
                     None
                 };
-
-                use_key.current_count = use_key.count;
-                player.context.stalling_timeout_buffered = Some((Timeout::default(), buffer_ticks));
-                player.context.stalling_timeout_buffered_update_callback = update_callback;
-                player.context.stalling_timeout_buffered_end_callback = end_callback;
-                player.context.stalling_timeout_buffered_interruptible = matches!(
+                let can_interrupt = matches!(
                     use_key.wait_after_buffered,
                     WaitAfterBuffered::Interruptible
                 );
+
+                use_key.current_count = use_key.count;
+                player.context.stalling_buffered = if can_interrupt {
+                    BufferedStalling::Interruptible(Timeout::default(), buffer_ticks)
+                } else {
+                    BufferedStalling::Uninterruptible(Timeout::default(), buffer_ticks)
+                };
+                player.context.stalling_timeout_buffered_update_callback = update_callback;
+                player.context.stalling_timeout_buffered_end_callback = end_callback;
             } else {
                 transition_if!(
                     player,
@@ -381,8 +386,10 @@ pub fn update_use_key_state(
     }
 }
 
-fn update_precondition(context: &PlayerContext, use_key: &mut UseKey) {
-    transition_if!(context.stalling_timeout_buffered.is_some());
+fn update_precondition(resources: &Resources, context: &mut PlayerContext, use_key: &mut UseKey) {
+    transition_if!(context.stalling_buffered.stalling(), {
+        context.clear_stalling_buffer_states_if_possible(resources);
+    });
 
     transition_if!(
         use_key,
@@ -708,6 +715,7 @@ mod tests {
         player::{
             Player, PlayerContext, PlayerEntity, Timeout,
             double_jump::DoubleJumping,
+            state::BufferedStalling,
             use_key::{PendingTransition, State, UseKey, Using, update_use_key_state},
         },
     };
@@ -1339,7 +1347,10 @@ mod tests {
         );
 
         update_use_key_state(&resources, &mut player, Minimap::Detecting);
-        assert_matches!(player.context.stalling_timeout_buffered, Some((_, 6)));
+        assert_matches!(
+            player.context.stalling_buffered,
+            BufferedStalling::Interruptible(_, 6)
+        );
         assert!(
             player
                 .context
@@ -1352,7 +1363,6 @@ mod tests {
                 .stalling_timeout_buffered_end_callback
                 .is_some()
         );
-        assert!(player.context.stalling_timeout_buffered_interruptible);
     }
 
     #[test]
@@ -1409,7 +1419,7 @@ mod tests {
         update_use_key_state(&resources, &mut player, Minimap::Detecting); // hold 
         update_use_key_state(&resources, &mut player, Minimap::Detecting); // release
         update_use_key_state(&resources, &mut player, Minimap::Detecting); // postcondition
-        assert!(player.context.stalling_timeout_buffered.is_none());
+        assert!(!player.context.stalling_buffered.stalling());
         assert!(
             player
                 .context
@@ -1437,7 +1447,10 @@ mod tests {
         });
         update_use_key_state(&resources, &mut player, Minimap::Detecting); // hold
         update_use_key_state(&resources, &mut player, Minimap::Detecting); // buffer
-        assert!(player.context.stalling_timeout_buffered.is_some());
+        assert_matches!(
+            player.context.stalling_buffered,
+            BufferedStalling::Uninterruptible(_, _)
+        );
         assert!(
             player
                 .context
@@ -1450,6 +1463,5 @@ mod tests {
                 .stalling_timeout_buffered_end_callback
                 .is_some()
         );
-        assert!(!player.context.stalling_timeout_buffered_interruptible);
     }
 }

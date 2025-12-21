@@ -35,6 +35,33 @@ const TIMEOUT: u32 = MOVE_TIMEOUT + 3;
 /// for mage.
 const TELEPORT_FALL_THRESHOLD: i32 = 16;
 
+#[derive(Clone, Copy, Debug)]
+pub struct Falling {
+    pub moving: Moving,
+    anchor: Point,
+    timeout_on_complete: bool,
+}
+
+impl Falling {
+    pub fn new(moving: Moving, anchor: Point, timeout_on_complete: bool) -> Self {
+        Self {
+            moving,
+            anchor,
+            timeout_on_complete,
+        }
+    }
+
+    fn moving(mut self, moving: Moving) -> Self {
+        self.moving = moving;
+        self
+    }
+
+    fn anchor(mut self, anchor: Point) -> Self {
+        self.anchor = anchor;
+        self
+    }
+}
+
 /// Updates the [`Player::Falling`] contextual state.
 ///
 /// This state performs a drop down action. It is completed as soon as the player current `y`
@@ -50,30 +77,36 @@ pub fn update_falling_state(
     player: &mut PlayerEntity,
     minimap_state: Minimap,
 ) {
-    let Player::Falling {
-        moving,
-        anchor,
-        timeout_on_complete,
-    } = player.state
-    else {
+    let Player::Falling(falling) = player.state else {
         panic!("state is not falling")
     };
 
     match next_moving_lifecycle_with_axis(
-        moving,
+        falling.moving,
         player.context.last_known_pos.expect("in positional state"),
         TIMEOUT,
         ChangeAxis::Vertical,
     ) {
         MovingLifecycle::Started(moving) => {
+            transition_if!(
+                player,
+                Player::Falling(falling.moving(moving.timeout_started(false))),
+                player.context.stalling_buffered.stalling(),
+                {
+                    player
+                        .context
+                        .clear_stalling_buffer_states_if_possible(resources);
+                }
+            );
+
             // Stall until stationary before doing a fall by resetting timeout started
             transition_if!(
                 player,
-                Player::Falling {
-                    moving: moving.timeout_started(false),
-                    anchor: moving.pos,
-                    timeout_on_complete,
-                },
+                Player::Falling(
+                    falling
+                        .moving(moving.timeout_started(false))
+                        .anchor(moving.pos)
+                ),
                 !player.context.is_stationary
             );
 
@@ -95,56 +128,38 @@ pub fn update_falling_state(
                 resources.input.send_key(player.context.config.jump_key);
             }
 
-            transition!(
-                player,
-                Player::Falling {
-                    moving,
-                    anchor,
-                    timeout_on_complete,
-                }
-            )
+            transition!(player, Player::Falling(falling.moving(moving)))
         }
         MovingLifecycle::Ended(moving) => transition_to_moving!(player, moving, {
             resources.input.send_key_up(KeyKind::Down);
         }),
-        MovingLifecycle::Updated(moving) => update_falling(
-            resources,
-            player,
-            minimap_state,
-            moving,
-            anchor,
-            timeout_on_complete,
-        ),
+        MovingLifecycle::Updated(mut moving) => {
+            if moving.timeout.total == STOP_DOWN_KEY_TICK {
+                resources.input.send_key_up(KeyKind::Down);
+            }
+            if !moving.completed {
+                let y_changed = moving.pos.y - falling.anchor.y;
+                if y_changed < 0 {
+                    moving.completed = true;
+                }
+            } else if falling.timeout_on_complete {
+                moving.timeout.current = TIMEOUT;
+            }
+            // Sets initial next state first
+            player.state = Player::Falling(falling.moving(moving));
+
+            update_from_action(resources, player, minimap_state, moving)
+        }
     }
 }
 
 #[inline]
-fn update_falling(
+fn update_from_action(
     resources: &Resources,
     player: &mut PlayerEntity,
     minimap_state: Minimap,
-    mut moving: Moving,
-    anchor: Point,
-    timeout_on_complete: bool,
+    moving: Moving,
 ) {
-    if moving.timeout.total == STOP_DOWN_KEY_TICK {
-        resources.input.send_key_up(KeyKind::Down);
-    }
-    if !moving.completed {
-        let y_changed = moving.pos.y - anchor.y;
-        if y_changed < 0 {
-            moving.completed = true;
-        }
-    } else if timeout_on_complete {
-        moving.timeout.current = TIMEOUT;
-    }
-    // Sets initial next state first
-    player.state = Player::Falling {
-        moving,
-        anchor,
-        timeout_on_complete,
-    };
-
     let cur_pos = moving.pos;
     let (y_distance, y_direction) = moving.y_distance_direction_from(true, cur_pos);
     let has_teleport_key = player.context.config.teleport_key.is_some();
@@ -212,7 +227,7 @@ mod tests {
         ecs::Resources,
         minimap::Minimap,
         player::{
-            Player, PlayerContext, PlayerEntity, moving::Moving, state::LastMovement,
+            Falling, Player, PlayerContext, PlayerEntity, moving::Moving, state::LastMovement,
             timeout::Timeout,
         },
     };
@@ -243,11 +258,11 @@ mod tests {
     fn update_falling_state_started_presses_down_and_jump() {
         let moving = mock_moving(POS, Point::new(POS.x, POS.y - 5)); // ensures falling
         let mut player = mock_player_entity_with_jump(POS);
-        player.state = Player::Falling {
+        player.state = Player::Falling(Falling {
             moving,
             anchor: Point::default(),
             timeout_on_complete: false,
-        };
+        });
 
         let mut keys = MockInput::new();
         keys.expect_send_key_down().once().with(eq(KeyKind::Down));
@@ -258,13 +273,13 @@ mod tests {
 
         assert_matches!(
             player.state,
-            Player::Falling {
+            Player::Falling(Falling {
                 moving: Moving {
                     timeout: Timeout { started: true, .. },
                     ..
                 },
                 ..
-            }
+            })
         );
         assert_eq!(player.context.last_movement, Some(LastMovement::Falling));
     }
@@ -274,11 +289,11 @@ mod tests {
         let moving = mock_moving(POS, Point::new(POS.x, POS.y - 5));
         let mut player = mock_player_entity_with_jump(POS);
         player.context.is_stationary = false;
-        player.state = Player::Falling {
+        player.state = Player::Falling(Falling {
             moving,
             anchor: Point::default(),
             timeout_on_complete: false,
-        };
+        });
 
         let mut keys = MockInput::new();
         keys.expect_send_key_down().never();
@@ -289,14 +304,14 @@ mod tests {
 
         assert_matches!(
             player.state,
-            Player::Falling {
+            Player::Falling(Falling {
                 moving: Moving {
                     timeout: Timeout { started: false, .. },
                     ..
                 },
                 anchor: POS,
                 ..
-            }
+            })
         );
         assert_eq!(player.context.last_movement, None);
     }
@@ -307,11 +322,11 @@ mod tests {
             .timeout_current(TIMEOUT)
             .timeout_started(true);
         let mut player = mock_player_entity_with_jump(POS);
-        player.state = Player::Falling {
+        player.state = Player::Falling(Falling {
             moving,
             anchor: Point::default(),
             timeout_on_complete: false,
-        };
+        });
 
         let mut keys = MockInput::new();
         keys.expect_send_key_up().once().with(eq(KeyKind::Down));
@@ -327,11 +342,11 @@ mod tests {
         let mut moving = mock_moving(POS, Point::new(POS.x, POS.y - 5)).timeout_started(true);
         moving.timeout.total = STOP_DOWN_KEY_TICK - 1;
         let mut player = mock_player_entity_with_jump(POS);
-        player.state = Player::Falling {
+        player.state = Player::Falling(Falling {
             moving,
             anchor: Point::default(),
             timeout_on_complete: false,
-        };
+        });
 
         let mut keys = MockInput::new();
         keys.expect_send_key_up().once().with(eq(KeyKind::Down));
@@ -348,11 +363,11 @@ mod tests {
             .completed(true)
             .timeout_started(true);
         let mut player = mock_player_entity_with_jump(POS);
-        player.state = Player::Falling {
+        player.state = Player::Falling(Falling {
             moving,
             anchor: Point::default(),
             timeout_on_complete: true,
-        };
+        });
 
         let resources = Resources::new(None, None);
 
@@ -360,7 +375,7 @@ mod tests {
 
         assert_matches!(
             player.state,
-            Player::Falling {
+            Player::Falling(Falling {
                 moving: Moving {
                     completed: true,
                     timeout: Timeout {
@@ -370,7 +385,7 @@ mod tests {
                     ..
                 },
                 ..
-            }
+            })
         );
     }
 
@@ -380,11 +395,11 @@ mod tests {
             .completed(true)
             .timeout_started(true);
         let mut player = mock_player_entity_with_jump(POS);
-        player.state = Player::Falling {
+        player.state = Player::Falling(Falling {
             moving,
             anchor: Point::default(),
             timeout_on_complete: false,
-        };
+        });
 
         let resources = Resources::new(None, None);
 
@@ -392,13 +407,13 @@ mod tests {
 
         assert_matches!(
             player.state,
-            Player::Falling {
+            Player::Falling(Falling {
                 moving: Moving {
                     timeout: Timeout { current: 1, .. },
                     ..
                 },
                 ..
-            }
+            })
         );
     }
 
