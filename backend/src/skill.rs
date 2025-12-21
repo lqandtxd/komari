@@ -39,7 +39,6 @@ impl SkillContext {
 pub enum Skill {
     Detecting,
     Idle(Point, Vec4b),
-    Cooldown,
 }
 
 #[derive(Clone, Copy, Debug, EnumIter)]
@@ -74,7 +73,6 @@ pub fn run_system(resources: &Resources, skill: &mut SkillEntity, player_state: 
         Skill::Idle(anchor_point, anchor_pixel) => {
             update_idle_state(resources, skill, anchor_point, anchor_pixel);
         }
-        Skill::Cooldown => update_detection_state(resources, skill),
     }
 }
 
@@ -91,7 +89,7 @@ fn update_idle_state(
     transition_if!(
         skill,
         Skill::Idle(anchor_point, anchor_pixel),
-        Skill::Cooldown,
+        Skill::Detecting,
         anchor_match(*pixel, anchor_pixel)
     );
 }
@@ -109,11 +107,7 @@ fn update_detection_state(resources: &Resources, skill: &mut SkillEntity) {
 
     match update {
         Update::Ok((point, pixel)) => transition!(skill, Skill::Idle(point, pixel)),
-        Update::Err(err) => transition_if!(
-            skill,
-            Skill::Detecting,
-            err.downcast::<f64>().unwrap() < 0.52
-        ),
+        Update::Err(_) => transition!(skill, Skill::Detecting),
         Update::Pending => (),
     };
 }
@@ -143,7 +137,7 @@ mod tests {
     use std::assert_matches::assert_matches;
     use std::time::Duration;
 
-    use anyhow::{Context as AnyhowContext, anyhow};
+    use anyhow::anyhow;
     use opencv::boxed_ref::BoxedRef;
     use opencv::core::{CV_8UC4, Mat, MatExprTraitConst, MatTrait, Rect, Vec4b};
     use tokio::time::advance;
@@ -160,7 +154,7 @@ mod tests {
         (mat, rect)
     }
 
-    fn create_mock_detector(center_pixel: u8, error: Option<f64>) -> (MockDetector, Rect) {
+    fn create_mock_detector(center_pixel: u8, error: bool) -> (MockDetector, Rect) {
         let mut detector = MockDetector::new();
         let (mat, rect) = create_test_mat_bbox(center_pixel);
 
@@ -168,8 +162,8 @@ mod tests {
             .expect_mat()
             .returning(move || BoxedRef::from(mat.clone()));
         detector.expect_detect_erda_shower().returning(move || {
-            if let Some(error) = error {
-                Err(anyhow!("error")).context(error)
+            if error {
+                Err(anyhow!("error"))
             } else {
                 Ok(rect)
             }
@@ -192,7 +186,7 @@ mod tests {
 
     #[tokio::test(start_paused = true)]
     async fn run_system_detecting_to_idle() {
-        let (detector, rect) = create_mock_detector(255, None);
+        let (detector, rect) = create_mock_detector(255, false);
         let resources = Resources::new(None, Some(detector));
         let mut skill = SkillEntity {
             state: Skill::Detecting,
@@ -210,26 +204,12 @@ mod tests {
         }
     }
 
-    #[test]
-    fn run_system_idle_to_cooldown() {
-        let (detector, rect) = create_mock_detector(200, None);
-        let resources = Resources::new(None, Some(detector));
-        let mut skill = SkillEntity {
-            state: Skill::Idle((rect.tl() + rect.br()) / 2, Vec4b::all(255)),
-            context: SkillContext::new(SkillKind::ErdaShower),
-        };
-
-        run_system(&resources, &mut skill, Player::Idle);
-
-        assert_matches!(skill.state, Skill::Cooldown);
-    }
-
     #[tokio::test(start_paused = true)]
-    async fn run_system_cooldown_to_detecting() {
-        let (detector, _) = create_mock_detector(255, Some(0.51));
+    async fn run_system_detecting_to_detecting() {
+        let (detector, _) = create_mock_detector(255, true);
         let resources = Resources::new(None, Some(detector));
         let mut skill = SkillEntity {
-            state: Skill::Cooldown,
+            state: Skill::Detecting,
             context: SkillContext::new(SkillKind::ErdaShower),
         };
 
@@ -238,37 +218,17 @@ mod tests {
         assert_matches!(skill.state, Skill::Detecting);
     }
 
-    #[tokio::test(start_paused = true)]
-    async fn run_system_cooldown_to_idle() {
-        let (detector, rect) = create_mock_detector(255, None);
+    #[test]
+    fn run_system_idle_to_detecting() {
+        let (detector, rect) = create_mock_detector(200, true);
         let resources = Resources::new(None, Some(detector));
         let mut skill = SkillEntity {
-            state: Skill::Cooldown,
+            state: Skill::Idle((rect.tl() + rect.br()) / 2, Vec4b::all(255)),
             context: SkillContext::new(SkillKind::ErdaShower),
         };
 
-        run_system_until_task_completed(&resources, &mut skill).await;
+        run_system(&resources, &mut skill, Player::Idle);
 
-        match skill.state {
-            Skill::Idle(point, pixel) => {
-                assert_eq!(point, (rect.tl() + rect.br()) / 2);
-                assert_eq!(pixel, Vec4b::all(255));
-            }
-            _ => panic!(),
-        }
-    }
-
-    #[tokio::test(start_paused = true)]
-    async fn run_system_cooldown_to_cooldown() {
-        let (detector, _) = create_mock_detector(255, Some(0.52));
-        let resources = Resources::new(None, Some(detector));
-        let mut skill = SkillEntity {
-            state: Skill::Cooldown,
-            context: SkillContext::new(SkillKind::ErdaShower),
-        };
-
-        run_system_until_task_completed(&resources, &mut skill).await;
-
-        assert_matches!(skill.state, Skill::Cooldown);
+        assert_matches!(skill.state, Skill::Detecting);
     }
 }

@@ -63,7 +63,7 @@ impl std::error::Error for DelayComplete {}
 #[derive(Debug)]
 pub enum Update<T> {
     Ok(T),
-    Err(Error),
+    Err(#[allow(unused)] Error),
     Pending,
 }
 
